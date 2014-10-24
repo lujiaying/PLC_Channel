@@ -10,16 +10,16 @@ function [node_vector] = topology_init(network_topology_file)
 %         向量元素的顺序root-HE-CPE-noise-X
 %     
 
-    % 全局变量声明
+    %% 全局变量声明
     global root_num HE_num CPE_num noise_num X_num;
     
     % 设置root_num, root: id=0, type=0, parent_id=-1
     root_num = 1;
 
-    % 载入txt文件
+    %% 载入txt文件
     node_matrix = load(network_topology_file);
     
-    % 生成与txt对应的node_vector
+    %% 生成与txt对应的node_vector
     total_num = length(node_matrix);
     node_vector = cell(1, total_num);
     for i = 1:total_num
@@ -43,7 +43,7 @@ function [node_vector] = topology_init(network_topology_file)
     end
     fprintf('[init success] node_vector load success\n')
    
-    % 检测node_vector的顺序是否是 root-HE-CPE-noise-X
+    %% 检测node_vector的顺序是否是 root-HE-CPE-noise-X
     for i = 1:total_num
         if node_vector{i}.id ~= i-1
            error(['[init error] node_vector{' num2str(i) '}.id ==' num2str(node_vector{i}.id)]); 

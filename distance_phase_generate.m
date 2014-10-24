@@ -9,14 +9,14 @@ function [leaf2leaf_link_matrix,distance_phase_matrix] = distance_phase_generate
 %       distance_phase_matrix: 距离向量六元祖矩阵，方阵维数HE_num+CPE_num+noise_num
 %         矩阵中的元素为distance_phase结构体
 
-    % 全局变量声明
+    %% 全局变量声明
     global root_num HE_num CPE_num noise_num X_num;
     
     distance_num = HE_num + CPE_num + noise_num;
     total_num = root_num + HE_num + CPE_num + noise_num + X_num;
     distance_phase_matrix = cell(distance_num);
     
-    % 求公共父节点
+    %% 求公共父节点
     % 思路： 由叶子遍历到根节点，得到两个链表，求链表的第一个交叉点。
         % 分解1: 得到root到HE, CPE, noise的反向链表
     leaf2root_link = -1 .* ones(distance_num, total_num);
@@ -73,7 +73,7 @@ function [leaf2leaf_link_matrix,distance_phase_matrix] = distance_phase_generate
     end
     fprintf('[distance_phase success] leaf2leaf_link_matrix generate success\n');
     
-    % 通过路径矩阵，生成distance_phase_matrix
+    %% 通过路径矩阵，生成distance_phase_matrix
     
     
     
