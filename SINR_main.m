@@ -16,5 +16,8 @@ node_vector = topology_init('test.txt');
 %distance_phase_matrix = distance_phase_generate(node_vector);
 [distance_phase_matrix, leaf2leaf_link_matrix] = distance_phase_generate(node_vector);
 
+%% µÚÈý²½
+propagation_attenuation_matrix = impedance_correlation_generate(distance_phase_matrix);
+
 %% end
 fprintf('[end] SINR calculate end...\n')

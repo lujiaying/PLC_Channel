@@ -1,6 +1,8 @@
 function [distance_phase_matrix, leaf2leaf_link_matrix] = distance_phase_generate(node_vector)
 %     生成距离六元组矩阵
 %     
+%     第二步
+%
 %     Args:
 %       node_vector: 第一步初始化得到的网络拓扑向量
 %         向量的元素为node结构体:node {id, type, parent_id, distance, phase} 
