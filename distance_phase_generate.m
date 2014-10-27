@@ -1,4 +1,4 @@
-function [leaf2leaf_link_matrix,distance_phase_matrix] = distance_phase_generate(node_vector)
+function [distance_phase_matrix, leaf2leaf_link_matrix] = distance_phase_generate(node_vector)
 %     生成距离六元组矩阵
 %     
 %     Args:
@@ -72,15 +72,57 @@ function [leaf2leaf_link_matrix,distance_phase_matrix] = distance_phase_generate
         end
     end
     fprintf('[distance_phase success] leaf2leaf_link_matrix generate success\n');
+    leaf2leaf_link_matrix
     
     %% 通过路径矩阵，生成distance_phase_matrix
-    
-    
-    
-    
-    
-    
-    
-    
-        
-    
+    % 以相位作为X,Y,Z的分段依据
+    X_start_index = 1;
+    Y_start_index = 2;
+    distance_phase_matrix = cell(distance_num);
+    for i = 1:distance_num
+        for j = 1:distance_num
+            if i == j
+                distance_phase_matrix{i, j} = 0;
+            else
+                temp_len_leaf2leaf_link = length(leaf2leaf_link_matrix{i, j});
+                distance_phase_matrix{i, j}.pha_X = node_vector{leaf2leaf_link_matrix{i, j}(X_start_index)+1}.phase;
+                distance_phase_matrix{i, j}.pha_Y = 0;
+                distance_phase_matrix{i, j}.pha_Z = node_vector{leaf2leaf_link_matrix{i, j}(temp_len_leaf2leaf_link)+1}.phase;
+                distance_phase_matrix{i, j}.dis_X = 0;
+                distance_phase_matrix{i, j}.dis_Y = 0;
+                distance_phase_matrix{i, j}.dis_Z = 0;
+                % 找出Y的分段点
+                Z_start_index = temp_len_leaf2leaf_link;
+                for l = Y_start_index:temp_len_leaf2leaf_link
+                    if node_vector{leaf2leaf_link_matrix{i, j}(l) + 1}.phase ~= 0
+                        Z_start_index = l;
+                    end
+                end
+                % 处理特殊情况：头节点的dis_X, dix_Z
+                if leaf2leaf_link_matrix{i, j}(X_start_index) == 1
+                    distance_phase_matrix{i, j}.dis_X = node_vector{leaf2leaf_link_matrix{i, j}(Y_start_index)+1}.distance;
+                    if node_vector{leaf2leaf_link_matrix{i, j}(Y_start_index)+1}.parent_id ~= 1
+                        fprintf(['i=' num2str(i) ', j=' num2str(j) '\n']);
+                        error(['[distance phase error] id=' num2str(leaf2leaf_link_matrix{i, j}(Y_start_index)) ', parent_id should = 1']);                                               
+                    end 
+                else
+                    for temp_l = X_start_index:Y_start_index - 1
+                        distance_phase_matrix{i, j}.dis_X = distance_phase_matrix{i, j}.dis_X + node_vector{temp_l+1}.distance;                
+                    end
+                end
+                if leaf2leaf_link_matrix{i, j}(temp_len_leaf2leaf_link) == 1
+                    distance_phase_matrix{i, j}.dis_Z = node_vector{leaf2leaf_link_matrix{i, j}(Z_start_index-1)+1}.distance;
+                    if node_vector{leaf2leaf_link_matrix{i, j}(temp_len_leaf2leaf_link-1)+1}.parent_id ~= 1
+                        fprintf(['i=' num2str(i) ', j=' num2str(j) '\n']);
+                        error(['[distance phase error] id=' num2str(leaf2leaf_link_matrix{i, j}(temp_len_leaf2leaf_link)+1 -1) ', parent_id should = 1']);                       
+                    end 
+                else
+                    for temp_l = temp_len_leaf2leaf_link:-1:Z_start_index
+                        distance_phase_matrix{i, j}.dis_Z = distance_phase_matrix{i, j}.dis_Z + node_vector{temp_l+1}.distance;                
+                    end
+                end
+                % 计算dis_Y
+                
+            end
+        end
+    end

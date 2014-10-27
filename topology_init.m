@@ -21,7 +21,7 @@ function [node_vector] = topology_init(network_topology_file)
     
     %% 生成与txt对应的node_vector
     total_num = length(node_matrix);
-    node_vector = cell(1, total_num);
+    node_vector = cell(total_num, 1);
     for i = 1:total_num
         node.id = node_matrix(i, 1);
         node.type = node_matrix(i, 2);

@@ -11,4 +11,4 @@ node_vector = topology_init('test.txt');
 
 %% µÚ¶þ²½
 %distance_phase_matrix = distance_phase_generate(node_vector);
-[leaf2leaf_link_matrix, distance_phase_matrix] = distance_phase_generate(node_vector);
+[distance_phase_matrix, leaf2leaf_link_matrix] = distance_phase_generate(node_vector);
