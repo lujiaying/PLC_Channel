@@ -69,5 +69,6 @@ function [node_vector] = topology_init(network_topology_file)
             end
         end
     end
+    fprintf('[init success] node_vector generate success!!\n');
     fprintf(['[init success] total_num==' num2str(total_num) '\n'])  
     
