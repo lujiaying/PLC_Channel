@@ -6,9 +6,15 @@ CPE_num = 0;
 noise_num = 0;
 X_num = 0;
 
+%% log
+fprintf('[start] SINR calculate start... print log:\n')
+
 %% 第一步
 node_vector = topology_init('test.txt');
 
 %% 第二步
 %distance_phase_matrix = distance_phase_generate(node_vector);
 [distance_phase_matrix, leaf2leaf_link_matrix] = distance_phase_generate(node_vector);
+
+%% end
+fprintf('[end] SINR calculate end...\n')

@@ -119,13 +119,13 @@ function [distance_phase_matrix, leaf2leaf_link_matrix] = distance_phase_generat
                 % 计算dis_Y
                     % 从前往后
                 for temp_l = Y_start_index:Z_start_index-1
-                    if node_vector{leaf2leaf_link_matrix{i, j}(temp_l)+1}.parent_id == leaf2leaf_link_matrix{i, j}(temp_l + 1)
+                    if node_vector{leaf2leaf_link_matrix{i, j}(temp_l)+1}.parent_id == leaf2leaf_link_matrix{i, j}(temp_l + 1) && node_vector{leaf2leaf_link_matrix{i, j}(temp_l)+1}.parent_id ~= 1
                         distance_phase_matrix{i, j}.dis_Y = distance_phase_matrix{i, j}.dis_Y + node_vector{leaf2leaf_link_matrix{i, j}(temp_l)+1}.distance;
                     end
                 end
                     % 从后往前
                 for temp_l = Z_start_index-1:-1:Y_start_index
-                    if node_vector{leaf2leaf_link_matrix{i, j}(temp_l)+1}.parent_id == leaf2leaf_link_matrix{i, j}(temp_l - 1)
+                    if node_vector{leaf2leaf_link_matrix{i, j}(temp_l)+1}.parent_id == leaf2leaf_link_matrix{i, j}(temp_l - 1) && node_vector{leaf2leaf_link_matrix{i, j}(temp_l)+1}.parent_id ~= 1
                         distance_phase_matrix{i, j}.dis_Y = distance_phase_matrix{i, j}.dis_Y + node_vector{leaf2leaf_link_matrix{i, j}(temp_l)+1}.distance;
                     end
                 end                
