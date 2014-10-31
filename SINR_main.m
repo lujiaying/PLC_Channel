@@ -25,5 +25,12 @@ impedance_correlation_matrix = impedance_correlation_generate(distance_phase_mat
 %% 第五步
 phase_coupling_parameter_matrix = phase_coupling_parameter_generate(distance_phase_matrix);
 
+%% 第六步
+impedance_vector = impedance_vector_init();
+
+%% 第七步
+distance_matrix = distance_matrix_generate(distance_phase_matrix);
+
+
 %% end
 fprintf('[end] SINR calculate end...\n')

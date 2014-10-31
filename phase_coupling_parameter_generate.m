@@ -9,7 +9,7 @@ function [phase_coupling_parameter_matrix] = phase_coupling_parameter_generate(d
 %          矩阵中的元素为浮点数
 
     %% 全局变量声明
-    global HE_num CPE_num noise_num;
+    global HE_num CPE_num;
     
     coupling_num = HE_num + CPE_num;
 
