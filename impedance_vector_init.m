@@ -26,6 +26,6 @@ function [impedance_vector] = impedance_vector_init()
     for i = 1:impedance_num
         impedance_vector(i) = normrnd(mean_idle, deviation_idle);
     end
-    
     fprintf('[impedance_vector success] impedance_vector init success!!\n');
+    
 end

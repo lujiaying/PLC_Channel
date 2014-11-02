@@ -17,7 +17,8 @@ function [impedance_space_vector] = impedance_space_relate(impedance_vector, dis
     %% 空间相关化公式
     % space_vector = R * vector, 其中R为HE_num+CPE_num的方阵，元素为空间相关系数s
     % s = e^(-d/a)     
-    a = 15;
+    a = 10;
+    % TODO 引入空间相关化后，会使阻抗增大很多，均值不再是90或20
     
     %% 生成空间相关化后的阻抗
     % 生成空间相关矩阵
@@ -27,6 +28,10 @@ function [impedance_space_vector] = impedance_space_relate(impedance_vector, dis
             space_relate_matrix(i,j) = exp(-distance_matrix(i,j)/a);
         end
     end
+    %space_relate_matrix.^(1/2)   %查看中间变量
     fprintf('[impedance_space_relate success] space_relate_matrix generate success!\n');
-
+    
+    % 生成空间相关化的阻抗向量
+    impedance_space_vector = space_relate_matrix.^(1/2) * impedance_vector;
+    fprintf('[impedance_space_relate success] impedance space vector generate success!\n');
 end

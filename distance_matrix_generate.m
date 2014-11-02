@@ -19,7 +19,6 @@ function [distance_matrix] = distance_matrix_generate(distance_phase_matrix)
         for j = 1:distance_num
             if i ~= j
                 distance_matrix(i,j) = distance_phase_matrix{i,j}.dis_X +  distance_phase_matrix{i,j}.dis_Y + distance_phase_matrix{i,j}.dis_Z;
-        
             end
         end
     end
