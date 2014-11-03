@@ -23,7 +23,7 @@ function [propagation_attenuation_matrix] = propagation_attenuation_generate(dis
     f = 5e6;    %频率5MHz
 
     %% 矩阵生成过程
-    propagation_attenuation_matrix = zeros(attenu_num);
+    propagation_attenuation_matrix = ones(attenu_num);
     for i = 1:attenu_num
         for j = 1:attenu_num
             if i ~= j

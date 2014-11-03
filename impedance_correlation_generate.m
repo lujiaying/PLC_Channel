@@ -18,7 +18,7 @@ function [impedance_correlation_matrix] = impedance_correlation_generate(distanc
     a = 30;
     
     %% 矩阵生成过程
-    impedance_correlation_matrix = zeros(correlation_num);
+    impedance_correlation_matrix = ones(correlation_num);
     for i = 1:correlation_num
         for j = 1:correlation_num
             if i ~= j

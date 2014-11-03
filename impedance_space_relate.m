@@ -32,6 +32,6 @@ function [impedance_space_vector] = impedance_space_relate(impedance_vector, dis
     fprintf('[impedance_space_relate success] space_relate_matrix generate success!\n');
     
     % 生成空间相关化的阻抗向量
-    impedance_space_vector = space_relate_matrix.^(1/2) * impedance_vector;
+    impedance_space_vector = real(space_relate_matrix^(1/2)) * impedance_vector;
     fprintf('[impedance_space_relate success] impedance space vector generate success!\n');
 end
