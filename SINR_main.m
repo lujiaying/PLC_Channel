@@ -6,7 +6,7 @@ CPE_num = 0;
 noise_num = 0;
 X_num = 0;
 
-%% log
+%% log start
 fprintf('[start] SINR calculate start... print log:\n')
 
 %% 第一步  初始化网络拓扑
@@ -28,11 +28,13 @@ phase_coupling_parameter_matrix = phase_coupling_parameter_generate(distance_pha
 impedance_vector = impedance_vector_init();
 
 %% 第七步  对阻抗向量进行空间相关化
-distance_matrix = distance_matrix_generate(distance_phase_matrix);
-impedance_space_vector = impedance_space_relate(impedance_vector, distance_matrix);
+impedance_space_vector = impedance_space_relate(impedance_vector, impedance_correlation_matrix);
 
 %% 第八步  初始化相位耦合系数矩阵
 phase_coupling_coefficient_matrix = phase_coupling_coefficient_init(phase_coupling_parameter_matrix);
 
-%% end
+%% 画阻抗随时间变化的图
+plot_impedance_day(impedance_vector, impedance_correlation_matrix);
+
+%% log end
 fprintf('[end] SINR calculate end...\n')

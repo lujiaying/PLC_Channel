@@ -9,9 +9,9 @@ function [impedance_correlation_matrix] = impedance_correlation_generate(distanc
 %          矩阵中的元素为浮点数
 
     %% 全局变量声明
-    global HE_num CPE_num noise_num;
+    global HE_num CPE_num;
     
-    correlation_num = HE_num + CPE_num + noise_num;
+    correlation_num = HE_num + CPE_num;
     
     %% 阻抗相关系数计算公式
     %  c = e^(-d/a)
@@ -28,5 +28,10 @@ function [impedance_correlation_matrix] = impedance_correlation_generate(distanc
         end
     end
     
+    impedance_correlation_matrix = real(impedance_correlation_matrix^(1/2));
+    % 对每行做归一化平均
+    for i = 1:correlation_num
+        impedance_correlation_matrix(i,:) = impedance_correlation_matrix(i,:) / sum(impedance_correlation_matrix(i,:));
+    end
     fprintf('[impedance_correlation success] impedance_correlation_matrix generate success!!\n');
 end

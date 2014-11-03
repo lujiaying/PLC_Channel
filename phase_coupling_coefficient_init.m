@@ -17,13 +17,17 @@ function [phase_coupling_coefficient_matrix] = phase_coupling_coefficient_init(p
     
     %% 相位耦合系数公式
     %  相位耦合系数 ~ N(相位耦合参数, 1^2)
-    phase_coupling_coefficient_matrix = ones(phase_num);
+    phase_coupling_coefficient_matrix = ones(phase_num, phase_num, 4, 4);
     for i = 1:phase_num
         for j = 1:phase_num
-            if i ~= j
-                phase_coupling_coefficient_matrix(i, j) = normrnd(phase_coupling_parameter_matrix(i, j), 1);
-                if phase_coupling_coefficient_matrix(i, j) < 0
-                    phase_coupling_coefficient_matrix(i, j) = 0;
+            for h = 1:4
+                for k = 1:4
+                    if i ~= j && h ~=k
+                        phase_coupling_coefficient_matrix(i, j, h, k) = normrnd(phase_coupling_parameter_matrix(i, j), 1);
+                        if phase_coupling_coefficient_matrix(i, j, h, k) < 0
+                            phase_coupling_coefficient_matrix(i, j, h, k) = 0;
+                        end
+                    end
                 end
             end
         end
