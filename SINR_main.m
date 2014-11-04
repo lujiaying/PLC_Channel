@@ -6,6 +6,12 @@ CPE_num = 0;
 noise_num = 0;
 X_num = 0;
 
+% 阻抗参数
+mean_idle = 90;
+deviation_idle = 4.5;
+mean_busy = 20;
+deviation_busy = 2.5;
+
 %% log start
 fprintf('[start] SINR calculate start... print log:\n')
 
@@ -25,7 +31,7 @@ impedance_correlation_matrix = impedance_correlation_generate(distance_phase_mat
 phase_coupling_parameter_matrix = phase_coupling_parameter_generate(distance_phase_matrix);
 
 %% 第六步  初始化阻抗向量
-impedance_vector = impedance_vector_init();
+impedance_vector = impedance_vector_init(mean_idle, deviation_idle);
 
 %% 第七步  对阻抗向量进行空间相关化
 impedance_space_vector = impedance_space_relate(impedance_vector, impedance_correlation_matrix);
@@ -35,6 +41,9 @@ phase_coupling_coefficient_matrix = phase_coupling_coefficient_init(phase_coupli
 
 %% 画阻抗随时间变化的图
 plot_impedance_day(impedance_vector, impedance_correlation_matrix);
+
+%% 画耦合系数随时间变化的图
+plot_phase_coupling_day(phase_coupling_parameter_matrix);
 
 %% log end
 fprintf('[end] SINR calculate end...\n')
