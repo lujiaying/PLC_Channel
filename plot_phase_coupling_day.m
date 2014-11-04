@@ -21,6 +21,7 @@ function [] = plot_phase_coupling_day(phase_coupling_parameter_matrix)
     figure;
     x = 16:0.1:22;
     plot(x,y1,x,y2,x,y3);
+    title('相位耦合系数随时间变化曲线');
     xlabel('时间(h)');
     ylabel('相位耦合参数');
     legend('同相', '不同相，共线距离短', '不同相，共线距离长');
