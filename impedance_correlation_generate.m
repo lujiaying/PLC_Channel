@@ -15,7 +15,7 @@ function [impedance_correlation_matrix] = impedance_correlation_generate(distanc
     
     %% 阻抗相关系数计算公式
     %  c = e^(-d/a)
-    a = 30;
+    a = 15;
     
     %% 矩阵生成过程
     impedance_correlation_matrix = ones(correlation_num);
