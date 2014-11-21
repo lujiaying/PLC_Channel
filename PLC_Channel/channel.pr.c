@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 546F1417 546F1417 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 546F45C4 546F45C4 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -346,7 +346,7 @@ topology_init(FILE *fin)
 	NODE_T *lvp_node;
 	extern int HE_num, CPE_num, NOISE_num, X_num;
 	int total_num;
-	Prg_List *lvp_rlist;
+	Prg_List **lvp_rlist;
 	
 	FIN(topology_init());
 	printf("enter topology_init\n");
@@ -385,7 +385,7 @@ topology_init(FILE *fin)
 		}
 		
 		total_num += 1;
-		lvp_node = (NODE_T *)realloc(lvp_node, (total_num+1)*sizeof(NODE_T));
+		lvp_node = (NODE_T *)op_prg_mem_realloc(lvp_node, (total_num+1)*sizeof(NODE_T));
 	}
 
 	if (total_num != HE_num+CPE_num+NOISE_num+X_num)
@@ -398,22 +398,54 @@ topology_init(FILE *fin)
 	/* generate distance_phase_matrix */
 	//* find common father node *//
 	///* generate reverse list: leaf->parent->...->root *///
-	lvp_rlist = (Prg_List *)op_prg_mem_alloc(total_num * sizeof(Prg_List));
+	lvp_rlist = (Prg_List **)op_prg_mem_alloc(total_num * sizeof(Prg_List *));
 	for (int i=0; i<total_num; i++)
 	{
 		lvp_rlist[i] = prg_list_create();
 		prg_list_insert(lvp_rlist[i], &(lvp_node[i].node_id), PRGC_LISTPOS_TAIL);
 		int *lvp_tmp_id = (int *)prg_list_access(lvp_rlist[i], PRGC_LISTPOS_TAIL);
-		printf("rlist[i]: %d->", *lvp_tmp_id);
-		while ( *lvp_tmp_id != 0)
+		printf("rlist[%d]: %d", i, *lvp_tmp_id);
+		while (*lvp_tmp_id != 0)
 		{
 			prg_list_insert(lvp_rlist[i], &(lvp_node[*lvp_tmp_id].parent_id), PRGC_LISTPOS_TAIL);
 			lvp_tmp_id = (int *)prg_list_access(lvp_rlist[i], PRGC_LISTPOS_TAIL);
-			printf("%d->", *lvp_tmp_id);
+			printf("->%d", *lvp_tmp_id);
 		}
 		printf("\n");
 	}
 	
+	///* find nearest common node *///
+	int lvi_len_sub;
+	for (int i=0; i<total_num; i++)
+	{
+		for (int j=0; i<total_num; i++)
+		{
+			lvi_len_sub = prg_list_size(lvp_rlist[i]) - prg_list_size(lvp_rlist[j]);
+			int h = 0, k = 0;
+			if (lvi_len_sub > 0)
+			{
+				h = lvi_len_sub;
+			}
+			else 
+			{
+				k = -lvi_len_sub;
+			}
+			while (*((int *)prg_list_access(lvp_rlist[i], h)) != *((int *)prg_list_access(lvp_rlist[j], k)))
+			{
+				h += 1;
+				k += 1;
+			}
+					 
+		}
+	}
+	//jiubugaosuni jiubugaosuni  nishidadoubi fanrende dadoubi
+	//zuixihuan gai bierende daima le 
+	//zhenshi taiyouqu le
+	//ni tai fanren le !
+	//zongshi zai bieren kuaiyao yingle de shihou  darao bieren 
+	//nizhezhong exin de ren woyaobuyao geini gai jihang daima ne ?
+	//wo suibian gaile yidian  niziji chacha kankanba
+	//ni neng caichulai  wogai le naxie hang ma ?
 	printf("leave topology_init\n");
 	op_prg_mem_free(lvp_node);
 	for (int i=0; i<total_num; i++)
