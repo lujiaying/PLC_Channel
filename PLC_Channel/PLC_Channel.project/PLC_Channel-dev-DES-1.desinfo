@@ -15,6 +15,7 @@ mem_opt.grow_pool_planks                     default     TRUE
 mem_optimize                                 default     TRUE
 mem_shred                                    default     FALSE
 mod_dirs                                     env. file   C:\Users\lu\Documents\GitHub\PLC_Channel\PLC_Channel,
+                                                         C:\Users\lu\OneDrive\code\OPNET\PLC\PLC_v.0.1.5\,
                                                          C:\Users\lu\OneDrive\code\OPNET\PLC\PLC_for_debug,
                                                          C:\Users\lu\Desktop\802.11n_std\,
                                                          "D:\\Program Files\\OPNET\\14.5.A\\sys\\lib",

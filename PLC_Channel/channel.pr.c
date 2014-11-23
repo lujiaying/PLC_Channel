@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5471A9D2 5471A9D2 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5471DCF9 5471DCF9 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -57,8 +57,8 @@ typedef struct NODE_T
 
 typedef struct DISTANCE_PHASE_T
 {
-    double dis_x;
-    double dix_Y;
+    double dis_X;
+    double dis_Y;
     double dis_Z;
     PHASE_T pha_X;
     PHASE_T pha_Y;
@@ -71,8 +71,9 @@ static double MPDU_receive_power_calculate(int, MPDU_T *);
 static void PHY_medium_refresh(void);
 static void MPDU_sinr_segment_refresh(void);
 static void MPDU_sinr_calculate(MPDU_T *);
+static DISTANCE_PHASE_T *** topology_init(FILE *fin);
 
-int HE_num = 0, CPE_num = 0, NOISE_num = 0, X_num = 0;
+int HE_num = 0, CPE_num = 0, NOISE_num = 0, X_num = 0, total_num = 0;
 
 /* End of Header Block */
 
@@ -97,11 +98,13 @@ typedef struct
 	List *	                 		svlist_channel                                  ;
 	Stathandle	             		svgstat_SINR                                    ;
 	Stathandle	             		svgstat_active_MPDU_number                      ;
+	DISTANCE_PHASE_T ***	   		svppp_distance_phase_matrix                     ;
 	} channel_state;
 
 #define svlist_channel          		op_sv_ptr->svlist_channel
 #define svgstat_SINR            		op_sv_ptr->svgstat_SINR
 #define svgstat_active_MPDU_number		op_sv_ptr->svgstat_active_MPDU_number
+#define svppp_distance_phase_matrix		op_sv_ptr->svppp_distance_phase_matrix
 
 /* These macro definitions will define a local variable called	*/
 /* "op_sv_ptr" in each function containing a FIN statement.	*/
@@ -340,21 +343,22 @@ MPDU_sinr_calculate(MPDU_T *lvp_MPDU)
 /* Last Update: 2014.11.16                                  */
 /* Remarks:                                             	*/
 /************************************************************/
-static int
+static DISTANCE_PHASE_T ***
 topology_init(FILE *fin)
 {
 	NODE_T *lvp_node;
-	extern int HE_num, CPE_num, NOISE_num, X_num;
-	int total_num;
-	Prg_List **lvp_rlist;    //reverse list
+	extern int HE_num, CPE_num, NOISE_num, X_num, total_num;
+	Prg_List **lvpp_rlist;    //reverse list
 	int lvi_len_sub;
-	Prg_List *lvp_tmp_list ,***lvp_nlist;    //node to node list
+	Prg_List *lvp_tmp_list ,***lvppp_nlist;    //node to node list
+	int lvi_index_Y_start, lvi_index_Y_end;
 	
 	FIN(topology_init());
 	printf("enter topology_init\n");
+	total_num = 0;
+	lvi_index_Y_start = 0;
     
 	/* read from file */
-	total_num = 0;
 	lvp_node = (NODE_T *)op_prg_mem_alloc((total_num+1)*sizeof(NODE_T));
 	while (fscanf(fin, "%d %d %d %lf %d", &(lvp_node[total_num].node_id), &(lvp_node[total_num].type), &(lvp_node[total_num].parent_id), &(lvp_node[total_num].distance), &(lvp_node[total_num].phase)))
 	{
@@ -400,29 +404,29 @@ topology_init(FILE *fin)
 	/* generate distance_phase_matrix */
 	//* find common father node *//
 	///* generate reverse list: leaf->parent->...->root *///
-	lvp_rlist = (Prg_List **)op_prg_mem_alloc(total_num * sizeof(Prg_List *));
+	lvpp_rlist = (Prg_List **)op_prg_mem_alloc(total_num * sizeof(Prg_List *));
 	for (int i=0; i<total_num; i++)
 	{
-		lvp_rlist[i] = prg_list_create();
-		prg_list_insert(lvp_rlist[i], &(lvp_node[i].node_id), PRGC_LISTPOS_TAIL);
-		int *lvp_tmp_id = (int *)prg_list_access(lvp_rlist[i], PRGC_LISTPOS_TAIL);
+		lvpp_rlist[i] = prg_list_create();
+		prg_list_insert(lvpp_rlist[i], &(lvp_node[i].node_id), PRGC_LISTPOS_TAIL);
+		int *lvp_tmp_id = (int *)prg_list_access(lvpp_rlist[i], PRGC_LISTPOS_TAIL);
 		printf("rlist[%d]: %d", i, *lvp_tmp_id);
 		while (*lvp_tmp_id != 0)
 		{
-			prg_list_insert(lvp_rlist[i], &(lvp_node[*lvp_tmp_id].parent_id), PRGC_LISTPOS_TAIL);
-			lvp_tmp_id = (int *)prg_list_access(lvp_rlist[i], PRGC_LISTPOS_TAIL);
+			prg_list_insert(lvpp_rlist[i], &(lvp_node[*lvp_tmp_id].parent_id), PRGC_LISTPOS_TAIL);
+			lvp_tmp_id = (int *)prg_list_access(lvpp_rlist[i], PRGC_LISTPOS_TAIL);
 			printf("->%d", *lvp_tmp_id);
 		}
-		printf(" (len:%d)\n", prg_list_size(lvp_rlist[i]));
+		printf(" (len:%d)\n", prg_list_size(lvpp_rlist[i]));
 	}
 	
 	
 	///* find nearest common node *///
-	lvp_nlist = (Prg_List ***)op_prg_mem_alloc(total_num * sizeof(Prg_List **));
+	lvppp_nlist = (Prg_List ***)op_prg_mem_alloc(total_num * sizeof(Prg_List **));
 	// init must success before use!!!
 	for (int i=0; i<total_num; i++)
 	{
-		lvp_nlist[i] = (Prg_List **)op_prg_mem_alloc(total_num * sizeof(Prg_List *));
+		lvppp_nlist[i] = (Prg_List **)op_prg_mem_alloc(total_num * sizeof(Prg_List *));
 	}
 	for (int i=0; i<total_num; i++)
 	{
@@ -431,7 +435,7 @@ topology_init(FILE *fin)
 		{
 			if (i != j)
 			{
-				lvi_len_sub = prg_list_size(lvp_rlist[i]) - prg_list_size(lvp_rlist[j]);
+				lvi_len_sub = prg_list_size(lvpp_rlist[i]) - prg_list_size(lvpp_rlist[j]);
 				int h = 0, k = 0;
 				if (lvi_len_sub > 0)
 				{
@@ -441,7 +445,7 @@ topology_init(FILE *fin)
 				{
 					k = -lvi_len_sub;
 				}
-				while (*((int *)prg_list_access(lvp_rlist[i], h)) != *((int *)prg_list_access(lvp_rlist[j], k)))
+				while (*((int *)prg_list_access(lvpp_rlist[i], h)) != *((int *)prg_list_access(lvpp_rlist[j], k)))
 				{
 					h += 1;
 					k += 1;
@@ -449,40 +453,89 @@ topology_init(FILE *fin)
 				/* generate node to node list */
 				printf("(h=%d, k=%d)", h, k);
 				lvp_tmp_list = prg_list_create();
-				printf("list [%d] to [%d]: ", i, j);
+				printf("list [%d] to [%d]: |", i, j);
 				for (int temp_h=0; temp_h<h; temp_h++)
 				{
-					//printf("access lvp_rlist[%d], temp_h=%d\n",i, temp_h);
-					prg_list_insert(lvp_tmp_list, (int *)prg_list_access(lvp_rlist[i], temp_h) , PRGC_LISTPOS_TAIL);
-					printf("%d->", *(int *)prg_list_access(lvp_rlist[i], temp_h));
+					//printf("access lvpp_rlist[%d], temp_h=%d\n",i, temp_h);
+					prg_list_insert(lvp_tmp_list, (int *)prg_list_access(lvpp_rlist[i], temp_h) , PRGC_LISTPOS_TAIL);
+					printf("%d->", *(int *)prg_list_access(lvpp_rlist[i], temp_h));
 				}
 				for (int temp_k=k; temp_k>=0; temp_k--)
 				{
-					//printf("access lvp_rlist[%d], temp_k=%d\n",j, temp_k);
-					prg_list_insert(lvp_tmp_list, (int *)prg_list_access(lvp_rlist[j], temp_k) , PRGC_LISTPOS_TAIL);
-					printf("%d->", *(int *)prg_list_access(lvp_rlist[j], temp_k));
+					//printf("access lvpp_rlist[%d], temp_k=%d\n",j, temp_k);
+					prg_list_insert(lvp_tmp_list, (int *)prg_list_access(lvpp_rlist[j], temp_k) , PRGC_LISTPOS_TAIL);
+					printf("%d->", *(int *)prg_list_access(lvpp_rlist[j], temp_k));
 				}
-				printf("\n");
-				lvp_nlist[i][j] = lvp_tmp_list;
+				printf("|\n");
+				lvppp_nlist[i][j] = lvp_tmp_list;
 				lvp_tmp_list = NULL;
 			}
 		}
 	}
 	
+	//* calculate dis_Y*//
+	// init svppp_distance_phase_matrix
+	svppp_distance_phase_matrix = (DISTANCE_PHASE_T ***)op_prg_mem_alloc(total_num * sizeof(DISTANCE_PHASE_T **));
+	// init must success before use!!!
+	for (int i=0; i<total_num; i++)
+	{
+		svppp_distance_phase_matrix[i] = (DISTANCE_PHASE_T **)op_prg_mem_alloc(total_num * sizeof(DISTANCE_PHASE_T *));
+	}
+	for (int i=0; i<total_num; i++)
+	{
+		for (int j=0; j<total_num; j++)
+		{
+			svppp_distance_phase_matrix[i][j] = (DISTANCE_PHASE_T *)op_prg_mem_alloc(total_num * sizeof(DISTANCE_PHASE_T));
+			if (i == j)
+			{
+				svppp_distance_phase_matrix[i][j]->dis_X = 0;
+				svppp_distance_phase_matrix[i][j]->dis_Y = 0;
+				svppp_distance_phase_matrix[i][j]->dis_Z = 0;
+				svppp_distance_phase_matrix[i][j]->pha_X = PHASE_ABC;
+				svppp_distance_phase_matrix[i][j]->pha_Y = PHASE_ABC;
+				svppp_distance_phase_matrix[i][j]->pha_Z = PHASE_ABC;
+			}
+			else
+			{
+				for (lvi_index_Y_start=0; lvi_index_Y_start<prg_list_size(lvppp_nlist[i][j]); lvi_index_Y_start++)
+				{
+					if (lvp_node[*(int *)prg_list_access(lvppp_nlist[i][j], lvi_index_Y_start)].phase == PHASE_ABC)
+					{
+						break;
+					}
+				}
+				for (lvi_index_Y_end=prg_list_size(lvppp_nlist[i][j]); lvi_index_Y_end>0; lvi_index_Y_end--)
+				{
+					if (lvp_node[*(int *)prg_list_access(lvppp_nlist[i][j], lvi_index_Y_end)].phase == PHASE_ABC)
+					{
+						break;
+					}
+				}
+				if (lvi_index_Y_start==prg_list_size(lvppp_nlist[i][j]) && lvi_index_Y_end==0)
+				{
+					lvi_index_Y_start = -1;
+					lvi_index_Y_end = -1;
+					printf("lvppp_nlist[%d][%d] dis_Y=0!\n");
+				}
+			}
+		}
+	}
+	
+	
 	printf("leave topology_init\n");
 	op_prg_mem_free(lvp_node);
 	for (int i=0; i<total_num; i++)
 	{
-		op_prg_list_free(lvp_rlist[i]);
+		op_prg_list_free(lvpp_rlist[i]);
 		for (int j=0; i<total_num; i++)
 		{
-			op_prg_list_free(lvp_nlist[i][j]);
+			op_prg_list_free(lvppp_nlist[i][j]);
 		}
-		op_prg_mem_free(lvp_nlist[i]);
+		op_prg_mem_free(lvppp_nlist[i]);
 	}
-	op_prg_mem_free(lvp_rlist);
-	op_prg_mem_free(lvp_nlist);
-	FRET(total_num);
+	op_prg_mem_free(lvpp_rlist);
+	op_prg_mem_free(lvppp_nlist);
+	FRET(svppp_distance_phase_matrix);
 }
 
 /* End of Function Block */
@@ -537,8 +590,8 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 			FSM_STATE_ENTER_FORCED_NOLABEL (0, "init", "channel [init enter execs]")
 				FSM_PROFILE_SECTION_IN ("channel [init enter execs]", state0_enter_exec)
 				{
-				int total_num;
-				 
+				extern int total_num;
+				
 				FILE *lvp_fin;
 				
 				if ((lvp_fin=fopen("./network.txt", "r")) == NULL)
@@ -548,7 +601,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				else
 				{
 					printf("lvp_fin != NULL\n");
-					total_num = topology_init(lvp_fin);
+					svppp_distance_phase_matrix = topology_init(lvp_fin);
 					printf("total_num == %d\n", total_num);
 				}
 				
@@ -577,12 +630,14 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				prg_mem_free(a);
 				**/
 				
+				/**
 				//test for List
 				Prg_List *a = prg_list_create();
 				int a0 = 0, a1 = 1;
 				prg_list_insert(a, &a0, PRGC_LISTPOS_TAIL);
 				prg_list_insert(a, &a1, PRGC_LISTPOS_TAIL);
 				printf("a: [%d]->[%d]\n", *(int *)prg_list_access(a, 0), *(int *)prg_list_access(a, 1));
+				**/
 				}
 				FSM_PROFILE_SECTION_OUT (state0_enter_exec)
 
@@ -658,6 +713,7 @@ _op_channel_terminate (OP_SIM_CONTEXT_ARG_OPT)
 #undef svlist_channel
 #undef svgstat_SINR
 #undef svgstat_active_MPDU_number
+#undef svppp_distance_phase_matrix
 
 #undef FIN_PREAMBLE_DEC
 #undef FIN_PREAMBLE_CODE
@@ -727,6 +783,11 @@ _op_channel_svar (void * gen_ptr, const char * var_name, void ** var_p_ptr)
 	if (strcmp ("svgstat_active_MPDU_number" , var_name) == 0)
 		{
 		*var_p_ptr = (void *) (&prs_ptr->svgstat_active_MPDU_number);
+		FOUT
+		}
+	if (strcmp ("svppp_distance_phase_matrix" , var_name) == 0)
+		{
+		*var_p_ptr = (void *) (&prs_ptr->svppp_distance_phase_matrix);
 		FOUT
 		}
 	*var_p_ptr = (void *)OPC_NIL;
