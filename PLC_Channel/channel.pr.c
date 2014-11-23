@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 546F45C4 546F45C4 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547194F3 547194F3 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -346,7 +346,9 @@ topology_init(FILE *fin)
 	NODE_T *lvp_node;
 	extern int HE_num, CPE_num, NOISE_num, X_num;
 	int total_num;
-	Prg_List **lvp_rlist;
+	Prg_List **lvp_rlist;    //reverse list
+	int lvi_len_sub;
+	Prg_List **lvp_nlist;    //node to node list
 	
 	FIN(topology_init());
 	printf("enter topology_init\n");
@@ -415,44 +417,61 @@ topology_init(FILE *fin)
 	}
 	
 	///* find nearest common node *///
-	int lvi_len_sub;
+	lvp_nlist = (Prg_List **)op_prg_mem_alloc(total_num * sizeof(Prg_List *));
 	for (int i=0; i<total_num; i++)
 	{
+		*(lvp_nlist + i) = (Prg_List *)op_prg_mem_alloc(total_num * sizeof(Prg_List));
 		for (int j=0; i<total_num; i++)
 		{
-			lvi_len_sub = prg_list_size(lvp_rlist[i]) - prg_list_size(lvp_rlist[j]);
-			int h = 0, k = 0;
-			if (lvi_len_sub > 0)
+			if (i != j)
 			{
-				h = lvi_len_sub;
+				lvi_len_sub = prg_list_size(lvp_rlist[i]) - prg_list_size(lvp_rlist[j]);
+				int h = 0, k = 0;
+				if (lvi_len_sub > 0)
+				{
+					h = lvi_len_sub;
+				}
+				else 
+				{
+					k = -lvi_len_sub;
+				}
+				while (*((int *)prg_list_access(lvp_rlist[i], h)) != *((int *)prg_list_access(lvp_rlist[j], k)))
+				{
+					h += 1;
+					k += 1;
+				}
+				/* generate node to node list */
+				printf("(h=%d, k=%d)", h, k);
+				prg_list_init(*(lvp_nlist + i) + j);
+				printf("list [%d] to [%d]: ", i, j);
+				for (int temp_h=0; temp_h<h; temp_h++)
+				{
+					prg_list_insert(*(lvp_nlist + i) + j, prg_list_access(lvp_rlist[i], temp_h) , PRGC_LISTPOS_TAIL);
+					printf("%d->", *(int *)prg_list_access(lvp_rlist[i], temp_h));
+				}
+				for (int temp_k=k; temp_k>=0; temp_k--)
+				{
+					prg_list_insert(*(lvp_nlist + i) + j, prg_list_access(lvp_rlist[i], temp_k) , PRGC_LISTPOS_TAIL);
+					printf("%d->", *(int *)prg_list_access(lvp_rlist[i], temp_k));
+				}
+				printf("\n");
 			}
-			else 
-			{
-				k = -lvi_len_sub;
-			}
-			while (*((int *)prg_list_access(lvp_rlist[i], h)) != *((int *)prg_list_access(lvp_rlist[j], k)))
-			{
-				h += 1;
-				k += 1;
-			}
-					 
 		}
 	}
-	//jiubugaosuni jiubugaosuni  nishidadoubi fanrende dadoubi
-	//zuixihuan gai bierende daima le 
-	//zhenshi taiyouqu le
-	//ni tai fanren le !
-	//zongshi zai bieren kuaiyao yingle de shihou  darao bieren 
-	//nizhezhong exin de ren woyaobuyao geini gai jihang daima ne ?
-	//wo suibian gaile yidian  niziji chacha kankanba
-	//ni neng caichulai  wogai le naxie hang ma ?
+	
 	printf("leave topology_init\n");
 	op_prg_mem_free(lvp_node);
 	for (int i=0; i<total_num; i++)
 	{
 		op_prg_list_free(lvp_rlist[i]);
+		for (int j=0; i<total_num; i++)
+		{
+			op_prg_list_free(*(lvp_nlist + i) + j);
+		}
+		op_prg_mem_free(*(lvp_nlist + i));
 	}
 	op_prg_mem_free(lvp_rlist);
+	op_prg_mem_free(lvp_nlist);
 	FRET(total_num);
 }
 
@@ -508,9 +527,6 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 			FSM_STATE_ENTER_FORCED_NOLABEL (0, "init", "channel [init enter execs]")
 				FSM_PROFILE_SECTION_IN ("channel [init enter execs]", state0_enter_exec)
 				{
-				//List *lptr;
-				//int *temp_ptr;
-				//char debug_str[50];
 				int total_num;
 				 
 				FILE *lvp_fin;
