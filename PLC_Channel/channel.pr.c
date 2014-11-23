@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547194F3 547194F3 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5471A9D2 5471A9D2 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -348,7 +348,7 @@ topology_init(FILE *fin)
 	int total_num;
 	Prg_List **lvp_rlist;    //reverse list
 	int lvi_len_sub;
-	Prg_List **lvp_nlist;    //node to node list
+	Prg_List *lvp_tmp_list ,***lvp_nlist;    //node to node list
 	
 	FIN(topology_init());
 	printf("enter topology_init\n");
@@ -413,15 +413,21 @@ topology_init(FILE *fin)
 			lvp_tmp_id = (int *)prg_list_access(lvp_rlist[i], PRGC_LISTPOS_TAIL);
 			printf("->%d", *lvp_tmp_id);
 		}
-		printf("\n");
+		printf(" (len:%d)\n", prg_list_size(lvp_rlist[i]));
 	}
 	
+	
 	///* find nearest common node *///
-	lvp_nlist = (Prg_List **)op_prg_mem_alloc(total_num * sizeof(Prg_List *));
+	lvp_nlist = (Prg_List ***)op_prg_mem_alloc(total_num * sizeof(Prg_List **));
+	// init must success before use!!!
 	for (int i=0; i<total_num; i++)
 	{
-		*(lvp_nlist + i) = (Prg_List *)op_prg_mem_alloc(total_num * sizeof(Prg_List));
-		for (int j=0; i<total_num; i++)
+		lvp_nlist[i] = (Prg_List **)op_prg_mem_alloc(total_num * sizeof(Prg_List *));
+	}
+	for (int i=0; i<total_num; i++)
+	{
+		
+		for (int j=0; j<total_num; j++)
 		{
 			if (i != j)
 			{
@@ -442,19 +448,23 @@ topology_init(FILE *fin)
 				}
 				/* generate node to node list */
 				printf("(h=%d, k=%d)", h, k);
-				prg_list_init(*(lvp_nlist + i) + j);
+				lvp_tmp_list = prg_list_create();
 				printf("list [%d] to [%d]: ", i, j);
 				for (int temp_h=0; temp_h<h; temp_h++)
 				{
-					prg_list_insert(*(lvp_nlist + i) + j, prg_list_access(lvp_rlist[i], temp_h) , PRGC_LISTPOS_TAIL);
+					//printf("access lvp_rlist[%d], temp_h=%d\n",i, temp_h);
+					prg_list_insert(lvp_tmp_list, (int *)prg_list_access(lvp_rlist[i], temp_h) , PRGC_LISTPOS_TAIL);
 					printf("%d->", *(int *)prg_list_access(lvp_rlist[i], temp_h));
 				}
 				for (int temp_k=k; temp_k>=0; temp_k--)
 				{
-					prg_list_insert(*(lvp_nlist + i) + j, prg_list_access(lvp_rlist[i], temp_k) , PRGC_LISTPOS_TAIL);
-					printf("%d->", *(int *)prg_list_access(lvp_rlist[i], temp_k));
+					//printf("access lvp_rlist[%d], temp_k=%d\n",j, temp_k);
+					prg_list_insert(lvp_tmp_list, (int *)prg_list_access(lvp_rlist[j], temp_k) , PRGC_LISTPOS_TAIL);
+					printf("%d->", *(int *)prg_list_access(lvp_rlist[j], temp_k));
 				}
 				printf("\n");
+				lvp_nlist[i][j] = lvp_tmp_list;
+				lvp_tmp_list = NULL;
 			}
 		}
 	}
@@ -466,9 +476,9 @@ topology_init(FILE *fin)
 		op_prg_list_free(lvp_rlist[i]);
 		for (int j=0; i<total_num; i++)
 		{
-			op_prg_list_free(*(lvp_nlist + i) + j);
+			op_prg_list_free(lvp_nlist[i][j]);
 		}
-		op_prg_mem_free(*(lvp_nlist + i));
+		op_prg_mem_free(lvp_nlist[i]);
 	}
 	op_prg_mem_free(lvp_rlist);
 	op_prg_mem_free(lvp_nlist);
@@ -543,6 +553,36 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				}
 				
 				fclose(lvp_fin);
+				
+				/**
+				//test for point
+				int m = 3;
+				int n = 4;
+				Prg_List ***a = (Prg_List ***)prg_mem_alloc(m * sizeof(Prg_List **));
+				for (int i=0; i<m; i++)
+				{
+					*(a + i) = (Prg_List **)prg_mem_alloc(n * sizeof(Prg_List *));
+				}
+				Prg_List *tmp = prg_list_create();
+				prg_list_insert(tmp, &m, PRGC_LISTPOS_TAIL);
+				//a[1][3] = tmp;
+				printf("before: a[1]:%p,  a[1][3]=%p\n", *(a+1), *(*(a + 1) + 3));
+				*(*(a + 1) + 3) = tmp;
+				printf("a[1][3]=%p\n", *(*(a + 1) + 3));
+				prg_list_free(a[1][3]);
+				for (int i=0; i<m; i++)
+				{
+					prg_mem_free(a[i]);
+				}
+				prg_mem_free(a);
+				**/
+				
+				//test for List
+				Prg_List *a = prg_list_create();
+				int a0 = 0, a1 = 1;
+				prg_list_insert(a, &a0, PRGC_LISTPOS_TAIL);
+				prg_list_insert(a, &a1, PRGC_LISTPOS_TAIL);
+				printf("a: [%d]->[%d]\n", *(int *)prg_list_access(a, 0), *(int *)prg_list_access(a, 1));
 				}
 				FSM_PROFILE_SECTION_OUT (state0_enter_exec)
 
