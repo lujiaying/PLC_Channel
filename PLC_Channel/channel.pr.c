@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5471DCF9 5471DCF9 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54732BC3 54732BC3 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -71,7 +71,7 @@ static double MPDU_receive_power_calculate(int, MPDU_T *);
 static void PHY_medium_refresh(void);
 static void MPDU_sinr_segment_refresh(void);
 static void MPDU_sinr_calculate(MPDU_T *);
-static DISTANCE_PHASE_T *** topology_init(FILE *fin);
+static DISTANCE_PHASE_T ** topology_init(FILE *fin);
 
 int HE_num = 0, CPE_num = 0, NOISE_num = 0, X_num = 0, total_num = 0;
 
@@ -98,13 +98,13 @@ typedef struct
 	List *	                 		svlist_channel                                  ;
 	Stathandle	             		svgstat_SINR                                    ;
 	Stathandle	             		svgstat_active_MPDU_number                      ;
-	DISTANCE_PHASE_T ***	   		svppp_distance_phase_matrix                     ;
+	DISTANCE_PHASE_T **	    		svpp_distance_phase_matrix                      ;
 	} channel_state;
 
 #define svlist_channel          		op_sv_ptr->svlist_channel
 #define svgstat_SINR            		op_sv_ptr->svgstat_SINR
 #define svgstat_active_MPDU_number		op_sv_ptr->svgstat_active_MPDU_number
-#define svppp_distance_phase_matrix		op_sv_ptr->svppp_distance_phase_matrix
+#define svpp_distance_phase_matrix		op_sv_ptr->svpp_distance_phase_matrix
 
 /* These macro definitions will define a local variable called	*/
 /* "op_sv_ptr" in each function containing a FIN statement.	*/
@@ -343,20 +343,17 @@ MPDU_sinr_calculate(MPDU_T *lvp_MPDU)
 /* Last Update: 2014.11.16                                  */
 /* Remarks:                                             	*/
 /************************************************************/
-static DISTANCE_PHASE_T ***
+static DISTANCE_PHASE_T **
 topology_init(FILE *fin)
 {
 	NODE_T *lvp_node;
 	extern int HE_num, CPE_num, NOISE_num, X_num, total_num;
 	Prg_List **lvpp_rlist;    //reverse list
 	int lvi_len_sub;
-	Prg_List *lvp_tmp_list ,***lvppp_nlist;    //node to node list
-	int lvi_index_Y_start, lvi_index_Y_end;
 	
 	FIN(topology_init());
 	printf("enter topology_init\n");
 	total_num = 0;
-	lvi_index_Y_start = 0;
     
 	/* read from file */
 	lvp_node = (NODE_T *)op_prg_mem_alloc((total_num+1)*sizeof(NODE_T));
@@ -420,19 +417,25 @@ topology_init(FILE *fin)
 		printf(" (len:%d)\n", prg_list_size(lvpp_rlist[i]));
 	}
 	
-	
-	///* find nearest common node *///
-	lvppp_nlist = (Prg_List ***)op_prg_mem_alloc(total_num * sizeof(Prg_List **));
+	svpp_distance_phase_matrix = (DISTANCE_PHASE_T **)op_prg_mem_alloc(total_num * sizeof(DISTANCE_PHASE_T **));
 	// init must success before use!!!
-	for (int i=0; i<total_num; i++)
+	for (int i=0; i<HE_num+CPE_num+NOISE_num; i++)
 	{
-		lvppp_nlist[i] = (Prg_List **)op_prg_mem_alloc(total_num * sizeof(Prg_List *));
+		svpp_distance_phase_matrix[i] = (DISTANCE_PHASE_T *)op_prg_mem_alloc(total_num * sizeof(DISTANCE_PHASE_T *));
 	}
-	for (int i=0; i<total_num; i++)
+
+	for (int i=0; i<HE_num+CPE_num+NOISE_num; i++)
 	{
 		
-		for (int j=0; j<total_num; j++)
+		for (int j=0; j<HE_num+CPE_num+NOISE_num; j++)
 		{
+			svpp_distance_phase_matrix[i][j].dis_X = 0;
+			svpp_distance_phase_matrix[i][j].dis_Y = 0;
+			svpp_distance_phase_matrix[i][j].dis_Z = 0;
+			svpp_distance_phase_matrix[i][j].pha_X = PHASE_ABC;
+			svpp_distance_phase_matrix[i][j].pha_Y = PHASE_ABC;
+			svpp_distance_phase_matrix[i][j].pha_Z = PHASE_ABC;
+			/* find nearest common node */
 			if (i != j)
 			{
 				lvi_len_sub = prg_list_size(lvpp_rlist[i]) - prg_list_size(lvpp_rlist[j]);
@@ -450,92 +453,45 @@ topology_init(FILE *fin)
 					h += 1;
 					k += 1;
 				}
-				/* generate node to node list */
-				printf("(h=%d, k=%d)", h, k);
-				lvp_tmp_list = prg_list_create();
-				printf("list [%d] to [%d]: |", i, j);
+				/* generate distance phase matrix */
+				printf("[%d]->[%d](h=%d, k=%d) ", h, k, i, j);
 				for (int temp_h=0; temp_h<h; temp_h++)
 				{
-					//printf("access lvpp_rlist[%d], temp_h=%d\n",i, temp_h);
-					prg_list_insert(lvp_tmp_list, (int *)prg_list_access(lvpp_rlist[i], temp_h) , PRGC_LISTPOS_TAIL);
-					printf("%d->", *(int *)prg_list_access(lvpp_rlist[i], temp_h));
+					if (lvp_node[*(int *)prg_list_access(lvpp_rlist[i], temp_h)].phase != PHASE_ABC)
+					{
+						svpp_distance_phase_matrix[i][j].dis_X += lvp_node[*(int *)prg_list_access(lvpp_rlist[i], temp_h)].distance;
+						svpp_distance_phase_matrix[i][j].pha_X = lvp_node[*(int *)prg_list_access(lvpp_rlist[i], temp_h)].phase;
+					}
+					else
+					{
+						svpp_distance_phase_matrix[i][j].dis_Y += lvp_node[*(int *)prg_list_access(lvpp_rlist[i], temp_h)].distance;
+					}
 				}
-				for (int temp_k=k; temp_k>=0; temp_k--)
+				for (int temp_k=0; temp_k<k; temp_k++)
 				{
-					//printf("access lvpp_rlist[%d], temp_k=%d\n",j, temp_k);
-					prg_list_insert(lvp_tmp_list, (int *)prg_list_access(lvpp_rlist[j], temp_k) , PRGC_LISTPOS_TAIL);
-					printf("%d->", *(int *)prg_list_access(lvpp_rlist[j], temp_k));
+					if (lvp_node[*(int *)prg_list_access(lvpp_rlist[j], temp_k)].phase != PHASE_ABC)
+					{
+						svpp_distance_phase_matrix[i][j].dis_Z += lvp_node[*(int *)prg_list_access(lvpp_rlist[j], temp_k)].distance;
+						svpp_distance_phase_matrix[i][j].pha_Z = lvp_node[*(int *)prg_list_access(lvpp_rlist[j], temp_k)].phase;
+					}
+					else
+					{
+						svpp_distance_phase_matrix[i][j].dis_Y += lvp_node[*(int *)prg_list_access(lvpp_rlist[j], temp_k)].distance;
+					}
 				}
-				printf("|\n");
-				lvppp_nlist[i][j] = lvp_tmp_list;
-				lvp_tmp_list = NULL;
+				printf("pha_X=%d, pha_Y=%d, pha_Z=%d, dis_X=%lf, dis_Y=%lf, dis_Z=%lf\n", svpp_distance_phase_matrix[i][j].pha_X, svpp_distance_phase_matrix[i][j].pha_Y, svpp_distance_phase_matrix[i][j].pha_Z, svpp_distance_phase_matrix[i][j].dis_X, svpp_distance_phase_matrix[i][j].dis_Y, svpp_distance_phase_matrix[i][j].dis_Z);
 			}
 		}
 	}
-	
-	//* calculate dis_Y*//
-	// init svppp_distance_phase_matrix
-	svppp_distance_phase_matrix = (DISTANCE_PHASE_T ***)op_prg_mem_alloc(total_num * sizeof(DISTANCE_PHASE_T **));
-	// init must success before use!!!
-	for (int i=0; i<total_num; i++)
-	{
-		svppp_distance_phase_matrix[i] = (DISTANCE_PHASE_T **)op_prg_mem_alloc(total_num * sizeof(DISTANCE_PHASE_T *));
-	}
-	for (int i=0; i<total_num; i++)
-	{
-		for (int j=0; j<total_num; j++)
-		{
-			svppp_distance_phase_matrix[i][j] = (DISTANCE_PHASE_T *)op_prg_mem_alloc(total_num * sizeof(DISTANCE_PHASE_T));
-			if (i == j)
-			{
-				svppp_distance_phase_matrix[i][j]->dis_X = 0;
-				svppp_distance_phase_matrix[i][j]->dis_Y = 0;
-				svppp_distance_phase_matrix[i][j]->dis_Z = 0;
-				svppp_distance_phase_matrix[i][j]->pha_X = PHASE_ABC;
-				svppp_distance_phase_matrix[i][j]->pha_Y = PHASE_ABC;
-				svppp_distance_phase_matrix[i][j]->pha_Z = PHASE_ABC;
-			}
-			else
-			{
-				for (lvi_index_Y_start=0; lvi_index_Y_start<prg_list_size(lvppp_nlist[i][j]); lvi_index_Y_start++)
-				{
-					if (lvp_node[*(int *)prg_list_access(lvppp_nlist[i][j], lvi_index_Y_start)].phase == PHASE_ABC)
-					{
-						break;
-					}
-				}
-				for (lvi_index_Y_end=prg_list_size(lvppp_nlist[i][j]); lvi_index_Y_end>0; lvi_index_Y_end--)
-				{
-					if (lvp_node[*(int *)prg_list_access(lvppp_nlist[i][j], lvi_index_Y_end)].phase == PHASE_ABC)
-					{
-						break;
-					}
-				}
-				if (lvi_index_Y_start==prg_list_size(lvppp_nlist[i][j]) && lvi_index_Y_end==0)
-				{
-					lvi_index_Y_start = -1;
-					lvi_index_Y_end = -1;
-					printf("lvppp_nlist[%d][%d] dis_Y=0!\n");
-				}
-			}
-		}
-	}
-	
 	
 	printf("leave topology_init\n");
 	op_prg_mem_free(lvp_node);
-	for (int i=0; i<total_num; i++)
+	for (int i=0; i<HE_num+CPE_num+NOISE_num; i++)
 	{
 		op_prg_list_free(lvpp_rlist[i]);
-		for (int j=0; i<total_num; i++)
-		{
-			op_prg_list_free(lvppp_nlist[i][j]);
-		}
-		op_prg_mem_free(lvppp_nlist[i]);
 	}
 	op_prg_mem_free(lvpp_rlist);
-	op_prg_mem_free(lvppp_nlist);
-	FRET(svppp_distance_phase_matrix);
+	FRET(svpp_distance_phase_matrix);
 }
 
 /* End of Function Block */
@@ -601,43 +557,11 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				else
 				{
 					printf("lvp_fin != NULL\n");
-					svppp_distance_phase_matrix = topology_init(lvp_fin);
+					svpp_distance_phase_matrix = topology_init(lvp_fin);
 					printf("total_num == %d\n", total_num);
 				}
 				
 				fclose(lvp_fin);
-				
-				/**
-				//test for point
-				int m = 3;
-				int n = 4;
-				Prg_List ***a = (Prg_List ***)prg_mem_alloc(m * sizeof(Prg_List **));
-				for (int i=0; i<m; i++)
-				{
-					*(a + i) = (Prg_List **)prg_mem_alloc(n * sizeof(Prg_List *));
-				}
-				Prg_List *tmp = prg_list_create();
-				prg_list_insert(tmp, &m, PRGC_LISTPOS_TAIL);
-				//a[1][3] = tmp;
-				printf("before: a[1]:%p,  a[1][3]=%p\n", *(a+1), *(*(a + 1) + 3));
-				*(*(a + 1) + 3) = tmp;
-				printf("a[1][3]=%p\n", *(*(a + 1) + 3));
-				prg_list_free(a[1][3]);
-				for (int i=0; i<m; i++)
-				{
-					prg_mem_free(a[i]);
-				}
-				prg_mem_free(a);
-				**/
-				
-				/**
-				//test for List
-				Prg_List *a = prg_list_create();
-				int a0 = 0, a1 = 1;
-				prg_list_insert(a, &a0, PRGC_LISTPOS_TAIL);
-				prg_list_insert(a, &a1, PRGC_LISTPOS_TAIL);
-				printf("a: [%d]->[%d]\n", *(int *)prg_list_access(a, 0), *(int *)prg_list_access(a, 1));
-				**/
 				}
 				FSM_PROFILE_SECTION_OUT (state0_enter_exec)
 
@@ -713,7 +637,7 @@ _op_channel_terminate (OP_SIM_CONTEXT_ARG_OPT)
 #undef svlist_channel
 #undef svgstat_SINR
 #undef svgstat_active_MPDU_number
-#undef svppp_distance_phase_matrix
+#undef svpp_distance_phase_matrix
 
 #undef FIN_PREAMBLE_DEC
 #undef FIN_PREAMBLE_CODE
@@ -785,9 +709,9 @@ _op_channel_svar (void * gen_ptr, const char * var_name, void ** var_p_ptr)
 		*var_p_ptr = (void *) (&prs_ptr->svgstat_active_MPDU_number);
 		FOUT
 		}
-	if (strcmp ("svppp_distance_phase_matrix" , var_name) == 0)
+	if (strcmp ("svpp_distance_phase_matrix" , var_name) == 0)
 		{
-		*var_p_ptr = (void *) (&prs_ptr->svppp_distance_phase_matrix);
+		*var_p_ptr = (void *) (&prs_ptr->svpp_distance_phase_matrix);
 		FOUT
 		}
 	*var_p_ptr = (void *)OPC_NIL;
