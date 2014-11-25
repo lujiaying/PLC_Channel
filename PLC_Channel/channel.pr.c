@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5473DBCE 5473DBCE 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5473DED7 5473DED7 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -60,6 +60,7 @@ typedef struct DISTANCE_PHASE_T
     double dis_X;
     double dis_Y;
     double dis_Z;
+	double dis_total;
     PHASE_T pha_X;
     PHASE_T pha_Y;
     PHASE_T pha_Z;
@@ -72,6 +73,8 @@ static void PHY_medium_refresh(void);
 static void MPDU_sinr_segment_refresh(void);
 static void MPDU_sinr_calculate(MPDU_T *);
 static DISTANCE_PHASE_T ** topology_init(FILE *fin);
+static void propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **propagation_attenuation_matrix);
+static void impedance_correlation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **impedance_correlation_matrix);
 
 int HE_num = 0, CPE_num = 0, NOISE_num = 0, X_num = 0, total_num = 0;
 
@@ -100,6 +103,7 @@ typedef struct
 	Stathandle	             		svgstat_active_MPDU_number                      ;
 	DISTANCE_PHASE_T **	    		svpp_distance_phase_matrix                      ;
 	double **	              		svpp_propagation_attenuation_matrix             ;
+	double **	              		svpp_impedance_correlation_matrix               ;
 	} channel_state;
 
 #define svlist_channel          		op_sv_ptr->svlist_channel
@@ -107,6 +111,7 @@ typedef struct
 #define svgstat_active_MPDU_number		op_sv_ptr->svgstat_active_MPDU_number
 #define svpp_distance_phase_matrix		op_sv_ptr->svpp_distance_phase_matrix
 #define svpp_propagation_attenuation_matrix		op_sv_ptr->svpp_propagation_attenuation_matrix
+#define svpp_impedance_correlation_matrix		op_sv_ptr->svpp_impedance_correlation_matrix
 
 /* These macro definitions will define a local variable called	*/
 /* "op_sv_ptr" in each function containing a FIN statement.	*/
@@ -441,6 +446,7 @@ topology_init(FILE *fin)
 			svpp_distance_phase_matrix[i][j].dis_X = 0;
 			svpp_distance_phase_matrix[i][j].dis_Y = 0;
 			svpp_distance_phase_matrix[i][j].dis_Z = 0;
+			svpp_distance_phase_matrix[i][j].dis_total = 0;
 			svpp_distance_phase_matrix[i][j].pha_X = PHASE_ABC;
 			svpp_distance_phase_matrix[i][j].pha_Y = PHASE_ABC;
 			svpp_distance_phase_matrix[i][j].pha_Z = PHASE_ABC;
@@ -488,7 +494,8 @@ topology_init(FILE *fin)
 						svpp_distance_phase_matrix[i][j].dis_Y += lvp_node[*(int *)prg_list_access(lvpp_rlist[j], temp_k)].distance;
 					}
 				}
-				printf("pha_X=%d, pha_Y=%d, pha_Z=%d, dis_X=%lf, dis_Y=%lf, dis_Z=%lf\n", svpp_distance_phase_matrix[i][j].pha_X, svpp_distance_phase_matrix[i][j].pha_Y, svpp_distance_phase_matrix[i][j].pha_Z, svpp_distance_phase_matrix[i][j].dis_X, svpp_distance_phase_matrix[i][j].dis_Y, svpp_distance_phase_matrix[i][j].dis_Z);
+				svpp_distance_phase_matrix[i][j].dis_total = svpp_distance_phase_matrix[i][j].dis_X + svpp_distance_phase_matrix[i][j].dis_Y + svpp_distance_phase_matrix[i][j].dis_Z;
+				printf("pha_X=%d, pha_Y=%d, pha_Z=%d, dis_X=%lf, dis_Y=%lf, dis_Z=%lf, dis_total=%lf\n", svpp_distance_phase_matrix[i][j].pha_X, svpp_distance_phase_matrix[i][j].pha_Y, svpp_distance_phase_matrix[i][j].pha_Z, svpp_distance_phase_matrix[i][j].dis_X, svpp_distance_phase_matrix[i][j].dis_Y, svpp_distance_phase_matrix[i][j].dis_Z, svpp_distance_phase_matrix[i][j].dis_total);
 			}
 		}
 	}
@@ -506,13 +513,13 @@ topology_init(FILE *fin)
 
 /************************************************************/
 /* Author: jiaying.lu                                      	*/
-/* Last Update: 2014.11.16                                  */
+/* Last Update: 2014.11.24                                  */
 /* Remarks:                                             	*/
 /************************************************************/
 static void
 propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **propagation_attenuation_matrix)
 {
-	double a0, a1, k, f, d;
+	double a0, a1, k, f;
 	int const attenu_num = HE_num + CPE_num + NOISE_num;
 	
 	FIN(propagation_attenuation_generate());
@@ -534,14 +541,27 @@ propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix,
 			}
 			else
 			{
-				d = distance_phase_matrix[i][j].dis_X + distance_phase_matrix[i][j].dis_Y + distance_phase_matrix[i][j].dis_Z;
-				propagation_attenuation_matrix[i][j] = exp(-(a0 + a1*pow(f, k))*d);
+				propagation_attenuation_matrix[i][j] = exp(-(a0 + a1*pow(f, k))*distance_phase_matrix[i][j].dis_total);
 			}
 			printf("propagation_attenuation_matrix[%d][%d] =%0.4lf\n", i, j, propagation_attenuation_matrix[i][j]);
 		}
 	}
 	
 	printf("leave propagation_attenuation_generate...\n");
+	FOUT;
+}
+
+
+/************************************************************/
+/* Author: jiaying.lu                                      	*/
+/* Last Update: 2014.11.25                                  */
+/* Remarks:                                             	*/
+/************************************************************/
+static void
+impedance_correlation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **impedance_correlation_matrix)
+{
+	FIN(impedance_correlation_generate());
+	
 	FOUT;
 }
 
@@ -700,6 +720,7 @@ _op_channel_terminate (OP_SIM_CONTEXT_ARG_OPT)
 #undef svgstat_active_MPDU_number
 #undef svpp_distance_phase_matrix
 #undef svpp_propagation_attenuation_matrix
+#undef svpp_impedance_correlation_matrix
 
 #undef FIN_PREAMBLE_DEC
 #undef FIN_PREAMBLE_CODE
@@ -779,6 +800,11 @@ _op_channel_svar (void * gen_ptr, const char * var_name, void ** var_p_ptr)
 	if (strcmp ("svpp_propagation_attenuation_matrix" , var_name) == 0)
 		{
 		*var_p_ptr = (void *) (&prs_ptr->svpp_propagation_attenuation_matrix);
+		FOUT
+		}
+	if (strcmp ("svpp_impedance_correlation_matrix" , var_name) == 0)
+		{
+		*var_p_ptr = (void *) (&prs_ptr->svpp_impedance_correlation_matrix);
 		FOUT
 		}
 	*var_p_ptr = (void *)OPC_NIL;
