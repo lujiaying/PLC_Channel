@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5473DAB6 5473DAB6 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5473DBCE 5473DBCE 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
