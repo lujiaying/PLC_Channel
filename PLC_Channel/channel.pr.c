@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54732BC3 54732BC3 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5473DAB6 5473DAB6 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -99,12 +99,14 @@ typedef struct
 	Stathandle	             		svgstat_SINR                                    ;
 	Stathandle	             		svgstat_active_MPDU_number                      ;
 	DISTANCE_PHASE_T **	    		svpp_distance_phase_matrix                      ;
+	double **	              		svpp_propagation_attenuation_matrix             ;
 	} channel_state;
 
 #define svlist_channel          		op_sv_ptr->svlist_channel
 #define svgstat_SINR            		op_sv_ptr->svgstat_SINR
 #define svgstat_active_MPDU_number		op_sv_ptr->svgstat_active_MPDU_number
 #define svpp_distance_phase_matrix		op_sv_ptr->svpp_distance_phase_matrix
+#define svpp_propagation_attenuation_matrix		op_sv_ptr->svpp_propagation_attenuation_matrix
 
 /* These macro definitions will define a local variable called	*/
 /* "op_sv_ptr" in each function containing a FIN statement.	*/
@@ -346,8 +348,15 @@ MPDU_sinr_calculate(MPDU_T *lvp_MPDU)
 static DISTANCE_PHASE_T **
 topology_init(FILE *fin)
 {
+	/**	read file from fin, init topology and generate DISTANCE PHASE matrix.
+	//  
+	//	Args:
+	//		FILE *fin: file with 6 columns, column type is int.
+	//	Return:
+	//  	DISTANCE_PHASE_T **: a matrix, length == total_num.    
+	**/
+
 	NODE_T *lvp_node;
-	extern int HE_num, CPE_num, NOISE_num, X_num, total_num;
 	Prg_List **lvpp_rlist;    //reverse list
 	int lvi_len_sub;
 	
@@ -421,7 +430,7 @@ topology_init(FILE *fin)
 	// init must success before use!!!
 	for (int i=0; i<HE_num+CPE_num+NOISE_num; i++)
 	{
-		svpp_distance_phase_matrix[i] = (DISTANCE_PHASE_T *)op_prg_mem_alloc(total_num * sizeof(DISTANCE_PHASE_T *));
+		svpp_distance_phase_matrix[i] = (DISTANCE_PHASE_T *)op_prg_mem_alloc(total_num * sizeof(DISTANCE_PHASE_T));
 	}
 
 	for (int i=0; i<HE_num+CPE_num+NOISE_num; i++)
@@ -484,14 +493,56 @@ topology_init(FILE *fin)
 		}
 	}
 	
-	printf("leave topology_init\n");
 	op_prg_mem_free(lvp_node);
 	for (int i=0; i<HE_num+CPE_num+NOISE_num; i++)
 	{
 		op_prg_list_free(lvpp_rlist[i]);
 	}
 	op_prg_mem_free(lvpp_rlist);
+	printf("leave topology_init...\n");
 	FRET(svpp_distance_phase_matrix);
+}
+
+
+/************************************************************/
+/* Author: jiaying.lu                                      	*/
+/* Last Update: 2014.11.16                                  */
+/* Remarks:                                             	*/
+/************************************************************/
+static void
+propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **propagation_attenuation_matrix)
+{
+	double a0, a1, k, f, d;
+	int const attenu_num = HE_num + CPE_num + NOISE_num;
+	
+	FIN(propagation_attenuation_generate());
+	printf("enter propagation_attenuation_generate, param [attenu_num=%d].\n", attenu_num);
+	
+	//formula: A(f,d) = e^(-(a0 + a1*f^k)*d)
+	a0 = 0;
+	a1 = 8.75 * pow(10, -10);
+	k = 1;
+	f = 5 * pow(10, 6);
+	
+	for (int i=0; i<attenu_num; i++)
+	{
+		for (int j=0; j<attenu_num; j++)
+		{
+			if (i == j)
+			{
+				propagation_attenuation_matrix[i][j] = 0;
+			}
+			else
+			{
+				d = distance_phase_matrix[i][j].dis_X + distance_phase_matrix[i][j].dis_Y + distance_phase_matrix[i][j].dis_Z;
+				propagation_attenuation_matrix[i][j] = exp(-(a0 + a1*pow(f, k))*d);
+			}
+			printf("propagation_attenuation_matrix[%d][%d] =%0.4lf\n", i, j, propagation_attenuation_matrix[i][j]);
+		}
+	}
+	
+	printf("leave propagation_attenuation_generate...\n");
+	FOUT;
 }
 
 /* End of Function Block */
@@ -546,10 +597,10 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 			FSM_STATE_ENTER_FORCED_NOLABEL (0, "init", "channel [init enter execs]")
 				FSM_PROFILE_SECTION_IN ("channel [init enter execs]", state0_enter_exec)
 				{
-				extern int total_num;
-				
 				FILE *lvp_fin;
 				
+				/* topology init. */
+				// global varieble HE_num, CPE_num, NOISE_num, X_num and total_num init.
 				if ((lvp_fin=fopen("./network.txt", "r")) == NULL)
 				{
 					op_sim_end("err: Can not open file", "", "", "");
@@ -560,8 +611,18 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 					svpp_distance_phase_matrix = topology_init(lvp_fin);
 					printf("total_num == %d\n", total_num);
 				}
-				
 				fclose(lvp_fin);
+				
+				int const num_without_X = HE_num + CPE_num + NOISE_num;
+				
+				/* generate propagation_attenuation_matrix */
+				// propagation_attenuation_matrix malloc memory.
+				svpp_propagation_attenuation_matrix = (double **)op_prg_mem_alloc(num_without_X * sizeof(double *));
+				for (int i=0; i<num_without_X; i++)
+				{
+					svpp_propagation_attenuation_matrix[i] = (double *)op_prg_mem_alloc(num_without_X * sizeof(double));
+				}
+				propagation_attenuation_generate(svpp_distance_phase_matrix, svpp_propagation_attenuation_matrix);
 				}
 				FSM_PROFILE_SECTION_OUT (state0_enter_exec)
 
@@ -638,6 +699,7 @@ _op_channel_terminate (OP_SIM_CONTEXT_ARG_OPT)
 #undef svgstat_SINR
 #undef svgstat_active_MPDU_number
 #undef svpp_distance_phase_matrix
+#undef svpp_propagation_attenuation_matrix
 
 #undef FIN_PREAMBLE_DEC
 #undef FIN_PREAMBLE_CODE
@@ -712,6 +774,11 @@ _op_channel_svar (void * gen_ptr, const char * var_name, void ** var_p_ptr)
 	if (strcmp ("svpp_distance_phase_matrix" , var_name) == 0)
 		{
 		*var_p_ptr = (void *) (&prs_ptr->svpp_distance_phase_matrix);
+		FOUT
+		}
+	if (strcmp ("svpp_propagation_attenuation_matrix" , var_name) == 0)
+		{
+		*var_p_ptr = (void *) (&prs_ptr->svpp_propagation_attenuation_matrix);
 		FOUT
 		}
 	*var_p_ptr = (void *)OPC_NIL;
