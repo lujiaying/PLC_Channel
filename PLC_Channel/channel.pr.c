@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5476871A 5476871A 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5477353A 5477353A 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -78,6 +78,8 @@ static void MPDU_sinr_calculate(MPDU_T *);
 static DISTANCE_PHASE_T ** topology_init(FILE *fin);
 static void propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **propagation_attenuation_matrix, int attenu_num);
 static void impedance_correlation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **impedance_correlation_matrix, int impedance_correlation_num);
+static void phase_coupling_parameter_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **phase_coupling_parameter_matrix, int phase_coupling_num);
+static void impedance_vector_init(double *impedance_vector, int impedance_num, double mean, double std_deviation);
 
 int gvi_HE_num = 0, gvi_CPE_num = 0, gvi_NOISE_num = 0, gvi_X_num = 0, gvi_total_num = 0;
 
@@ -107,6 +109,8 @@ typedef struct
 	DISTANCE_PHASE_T **	    		svpp_distance_phase_matrix                      ;
 	double **	              		svpp_propagation_attenuation_matrix             ;
 	double **	              		svpp_impedance_correlation_matrix               ;
+	double **	              		svpp_phase_coupling_parameter_matrix            ;
+	double *	               		svp_impedance_vector                            ;
 	} channel_state;
 
 #define svlist_channel          		op_sv_ptr->svlist_channel
@@ -115,6 +119,8 @@ typedef struct
 #define svpp_distance_phase_matrix		op_sv_ptr->svpp_distance_phase_matrix
 #define svpp_propagation_attenuation_matrix		op_sv_ptr->svpp_propagation_attenuation_matrix
 #define svpp_impedance_correlation_matrix		op_sv_ptr->svpp_impedance_correlation_matrix
+#define svpp_phase_coupling_parameter_matrix		op_sv_ptr->svpp_phase_coupling_parameter_matrix
+#define svp_impedance_vector    		op_sv_ptr->svp_impedance_vector
 
 /* These macro definitions will define a local variable called	*/
 /* "op_sv_ptr" in each function containing a FIN statement.	*/
@@ -350,7 +356,7 @@ MPDU_sinr_calculate(MPDU_T *lvp_MPDU)
 
 /************************************************************/
 /* Author: jiaying.lu                                      	*/
-/* Last Update: 2014.11.16                                  */
+/* Last Update: 2014.11.26                                  */
 /* Remarks:                                             	*/
 /************************************************************/
 static DISTANCE_PHASE_T **
@@ -612,6 +618,68 @@ impedance_correlation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, d
 	FOUT;
 }
 
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2014.11.27                                  */
+/* Remarks:                                             	 */
+/************************************************************/
+static void
+phase_coupling_parameter_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **phase_coupling_parameter_matrix, int phase_coupling_num)
+{
+	double k;
+	int lvi_index_i, lvi_index_j;
+	
+	FIN(phase_coupling_parameter_generate);
+	printf("enter phase_coupling_parameter_generate\n");
+	
+	//formula: c = k*dis_Y / (dis_x + dis_Y + dis_Z)
+	k = 0.5;	
+	
+	for (lvi_index_i=0; lvi_index_i<phase_coupling_num; lvi_index_i++)
+	{
+		for (lvi_index_j=0; lvi_index_j<phase_coupling_num; lvi_index_j++)
+		{
+			if (lvi_index_i == lvi_index_j)
+			{
+				phase_coupling_parameter_matrix[lvi_index_i][lvi_index_j] = 1;
+			}
+			else
+			{
+				phase_coupling_parameter_matrix[lvi_index_i][lvi_index_j] = k*distance_phase_matrix[lvi_index_i][lvi_index_j].dis_Y / distance_phase_matrix[lvi_index_i][lvi_index_j].dis_total;
+			}
+			printf("phase_coupling_parameter_matrix[%d][%d]=%lf\n", lvi_index_i, lvi_index_j, phase_coupling_parameter_matrix[lvi_index_i][lvi_index_j]);
+		}
+	}
+	
+	printf("leave phase_coupling_parameter_generate...\n");
+	FOUT;
+}
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2014.11.27                                  */
+/* Remarks:                                             	 */
+/************************************************************/
+static void
+impedance_vector_init(double *impedance_vector, int impedance_num, double mean, double std_deviation)
+{
+	int lvi_index_i;
+	Distribution *lvp_normal_dist = op_dist_load("normal", mean, std_deviation*std_deviation);
+	
+	FIN(impedance_vector_init());
+	printf("enter impedance_vector_init\n");
+	
+	for (lvi_index_i=0; lvi_index_i<impedance_num; lvi_index_i++)
+	{
+		impedance_vector[lvi_index_i] = op_dist_outcome(lvp_normal_dist);
+		printf("impedance_vector[%d] = %lf", lvi_index_i, impedance_vector[lvi_index_i]);
+	}
+	
+	printf("leave impedance_vector_init...\n");
+	FOUT;
+}
+
 /* End of Function Block */
 
 /* Undefine optional tracing in FIN/FOUT/FRET */
@@ -666,6 +734,8 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				{
 				FILE *lvp_fin;
 				int lvi_index_i;
+				double lvd_mean, lvd_std_deviation;
+				
 				
 				/* step 1: topology init. */
 				// global varieble HE_num, CPE_num, NOISE_num, X_num and total_num init.
@@ -680,6 +750,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 					printf("total_num == %d\n", gvi_total_num);
 				}
 				fclose(lvp_fin);
+				
 				
 				/* step 2: generate propagation_attenuation_matrix */
 				// malloc memory for propagation_attenuation_matrix.
@@ -699,6 +770,23 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				}
 				impedance_correlation_generate(svpp_distance_phase_matrix, svpp_impedance_correlation_matrix, gvi_HE_num+gvi_CPE_num);
 				
+				
+				/* step 4: generate phase_coupling_parameter_matrix */
+				// malloc memory for phase_coupling_parameter_matrix.
+				svpp_phase_coupling_parameter_matrix = (double **)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num+gvi_NOISE_num) * sizeof(double *));
+				for (int lvi_index_i=0; lvi_index_i<(gvi_HE_num+gvi_CPE_num+gvi_NOISE_num); lvi_index_i++)
+				{
+					svpp_phase_coupling_parameter_matrix[lvi_index_i] = (double *)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num+gvi_NOISE_num) * sizeof(double));
+				}
+				phase_coupling_parameter_generate(svpp_distance_phase_matrix, svpp_phase_coupling_parameter_matrix, gvi_HE_num+gvi_CPE_num+gvi_NOISE_num);
+				
+				
+				/* step 5: generate impedance_vector */
+				// malloc memory for impedance_vector.
+				svp_impedance_vector = (double *)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num) * sizeof(double));
+				lvd_mean = 90;
+				lvd_std_deviation = 4.5;
+				impedance_vector_init(svp_impedance_vector, gvi_HE_num+gvi_CPE_num, lvd_mean, lvd_std_deviation);
 				}
 				FSM_PROFILE_SECTION_OUT (state0_enter_exec)
 
@@ -830,6 +918,8 @@ _op_channel_terminate (OP_SIM_CONTEXT_ARG_OPT)
 #undef svpp_distance_phase_matrix
 #undef svpp_propagation_attenuation_matrix
 #undef svpp_impedance_correlation_matrix
+#undef svpp_phase_coupling_parameter_matrix
+#undef svp_impedance_vector
 
 #undef FIN_PREAMBLE_DEC
 #undef FIN_PREAMBLE_CODE
@@ -914,6 +1004,16 @@ _op_channel_svar (void * gen_ptr, const char * var_name, void ** var_p_ptr)
 	if (strcmp ("svpp_impedance_correlation_matrix" , var_name) == 0)
 		{
 		*var_p_ptr = (void *) (&prs_ptr->svpp_impedance_correlation_matrix);
+		FOUT
+		}
+	if (strcmp ("svpp_phase_coupling_parameter_matrix" , var_name) == 0)
+		{
+		*var_p_ptr = (void *) (&prs_ptr->svpp_phase_coupling_parameter_matrix);
+		FOUT
+		}
+	if (strcmp ("svp_impedance_vector" , var_name) == 0)
+		{
+		*var_p_ptr = (void *) (&prs_ptr->svp_impedance_vector);
 		FOUT
 		}
 	*var_p_ptr = (void *)OPC_NIL;
