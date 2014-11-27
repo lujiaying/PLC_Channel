@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5473DED7 5473DED7 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5476871A 5476871A 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -19,11 +19,14 @@ const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5473DED7 5473D
 #include "PLC_def.h"
 #include "PLC_data.h"
 #include "PLC_func.h"
-//#include "PLC_Channel.h"
 
-#define SYS_INIT				((op_intrpt_type() == OPC_INTRPT_MCAST) && (op_intrpt_code() == INTRPT_SYS_INIT))
-#define PHY_TXSTART				((op_intrpt_type() == OPC_INTRPT_REMOTE) && (op_intrpt_code() == INTRPT_PHY_TXSTART))
-#define PHY_TXEND				((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_PHY_TXEND))
+#define INTRPT_CHANNEL_TIME_TO_UPDATE 31
+#define INTRPT_CHANNEL_PPDU_START 32
+#define INTRPT_CHANNEL_PPDU_END 33
+
+#define TIME_TO_UPDATE			((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_TIME_TO_UPDATE))
+#define PPDU_START				((op_intrpt_type() == OPC_INTRPT_REMOTE) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
+#define PPDU_END				((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_END))			
 
 /* enum */
 typedef enum NODE_TYPE_T
@@ -73,10 +76,10 @@ static void PHY_medium_refresh(void);
 static void MPDU_sinr_segment_refresh(void);
 static void MPDU_sinr_calculate(MPDU_T *);
 static DISTANCE_PHASE_T ** topology_init(FILE *fin);
-static void propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **propagation_attenuation_matrix);
-static void impedance_correlation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **impedance_correlation_matrix);
+static void propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **propagation_attenuation_matrix, int attenu_num);
+static void impedance_correlation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **impedance_correlation_matrix, int impedance_correlation_num);
 
-int HE_num = 0, CPE_num = 0, NOISE_num = 0, X_num = 0, total_num = 0;
+int gvi_HE_num = 0, gvi_CPE_num = 0, gvi_NOISE_num = 0, gvi_X_num = 0, gvi_total_num = 0;
 
 /* End of Header Block */
 
@@ -355,155 +358,165 @@ topology_init(FILE *fin)
 {
 	/**	read file from fin, init topology and generate DISTANCE PHASE matrix.
 	//  
-	//	Args:
-	//		FILE *fin: file with 6 columns, column type is int.
-	//	Return:
-	//  	DISTANCE_PHASE_T **: a matrix, length == total_num.    
+	//	 Args:
+	//		 FILE *fin: file with 6 columns, column type is int.
+	//  Return:
+	//  	 DISTANCE_PHASE_T **: a matrix, length == gvi_total_num.    
 	**/
 
 	NODE_T *lvp_node;
 	Prg_List **lvpp_rlist;    //reverse list
 	int lvi_len_sub;
+	int lvi_index_i, lvi_index_j;
+	int lvi_index_common_i, lvi_index_common_j;
+	int lvi_index_temp_i, lvi_index_temp_j;
+	char lvc_msg[100];
 	
 	FIN(topology_init());
 	printf("enter topology_init\n");
-	total_num = 0;
+	gvi_total_num = 0;
     
 	/* read from file */
-	lvp_node = (NODE_T *)op_prg_mem_alloc((total_num+1)*sizeof(NODE_T));
-	while (fscanf(fin, "%d %d %d %lf %d", &(lvp_node[total_num].node_id), &(lvp_node[total_num].type), &(lvp_node[total_num].parent_id), &(lvp_node[total_num].distance), &(lvp_node[total_num].phase)))
+	lvp_node = (NODE_T *)op_prg_mem_alloc((gvi_total_num+1)*sizeof(NODE_T));
+	while (fscanf(fin, "%d %d %d %lf %d", &(lvp_node[gvi_total_num].node_id), &(lvp_node[gvi_total_num].type), &(lvp_node[gvi_total_num].parent_id), &(lvp_node[gvi_total_num].distance), &(lvp_node[gvi_total_num].phase)))
 	{
 		if (feof(fin))
 		{
 			printf("read file end!\n");
 			break;
 		}
-		printf("%d: %d %d %d %lf %d\n", total_num, lvp_node[total_num].node_id, lvp_node[total_num].type, lvp_node[total_num].parent_id, lvp_node[total_num].distance, lvp_node[total_num].phase);
+		printf("%d: %d %d %d %lf %d\n", gvi_total_num, lvp_node[gvi_total_num].node_id, lvp_node[gvi_total_num].type, lvp_node[gvi_total_num].parent_id, lvp_node[gvi_total_num].distance, lvp_node[gvi_total_num].phase);
 		/* calculate TYPE nums */
-		if (lvp_node[total_num].type == TYPE_HE)
+		if (lvp_node[gvi_total_num].type == TYPE_HE)
 		{
-			HE_num += 1;
+			gvi_HE_num += 1;
 		}
-		else if (lvp_node[total_num].type == TYPE_CPE)
+		else if (lvp_node[gvi_total_num].type == TYPE_CPE)
 		{
-			CPE_num += 1;
+			gvi_CPE_num += 1;
 		}
-		else if (lvp_node[total_num].type == TYPE_NOISE)
+		else if (lvp_node[gvi_total_num].type == TYPE_NOISE)
 		{
-	 		NOISE_num += 1;
+	 		gvi_NOISE_num += 1;
 		}
-		else if (lvp_node[total_num].type == TYPE_X)
+		else if (lvp_node[gvi_total_num].type == TYPE_X)
 		{
-			X_num += 1;
+			gvi_X_num += 1;
 		}
 		else
 		{
-	 		printf("error occurs in node[%d], it's type=%d\n", total_num, lvp_node[total_num].type);
+	 		printf("error occurs in node[%d], it's type=%d\n", gvi_total_num, lvp_node[gvi_total_num].type);
 		}
 		
-		total_num += 1;
-		lvp_node = (NODE_T *)op_prg_mem_realloc(lvp_node, (total_num+1)*sizeof(NODE_T));
+		gvi_total_num += 1;
+		lvp_node = (NODE_T *)op_prg_mem_realloc(lvp_node, (gvi_total_num+1)*sizeof(NODE_T));
 	}
 
-	if (total_num != HE_num+CPE_num+NOISE_num+X_num)
+	if (gvi_total_num != gvi_HE_num+gvi_CPE_num+gvi_NOISE_num+gvi_X_num)
 	{
-		char err_msg[20];
-		sprintf(err_msg, "total_num: %d, sum: %d", total_num, HE_num+CPE_num+NOISE_num+X_num);
-		op_sim_end("err: total_num != HE_num+CPE_num+NOISE_num+X_num", err_msg, "", "");
+
+		sprintf(lvc_msg, "gvi_total_num: %d, sum: %d", gvi_total_num, gvi_HE_num+gvi_CPE_num+gvi_NOISE_num+gvi_X_num);
+		op_sim_end("err: gvi_total_num != gvi_HE_num+gvi_CPE_num+gvi_NOISE_num+gvi_X_num", lvc_msg, "", "");
+	}
+	else
+	{
+		sprintf(lvc_msg, "gvi_total_num:%d, gvi_HE_num:%d, gvi_CPE_num:%d, gvi_NOISE_num:%d, gvi_X_num:%d", gvi_total_num, gvi_HE_num, gvi_CPE_num, gvi_NOISE_num, gvi_X_num);
+		op_sim_message("read file success", lvc_msg);
 	}
 	
 	/* generate distance_phase_matrix */
 	//* find common father node *//
 	///* generate reverse list: leaf->parent->...->root *///
-	lvpp_rlist = (Prg_List **)op_prg_mem_alloc(total_num * sizeof(Prg_List *));
-	for (int i=0; i<total_num; i++)
+	lvpp_rlist = (Prg_List **)op_prg_mem_alloc(gvi_total_num * sizeof(Prg_List *));
+	for (lvi_index_i=0; lvi_index_i<gvi_total_num; lvi_index_i++)
 	{
-		lvpp_rlist[i] = prg_list_create();
-		prg_list_insert(lvpp_rlist[i], &(lvp_node[i].node_id), PRGC_LISTPOS_TAIL);
-		int *lvp_tmp_id = (int *)prg_list_access(lvpp_rlist[i], PRGC_LISTPOS_TAIL);
-		printf("rlist[%d]: %d", i, *lvp_tmp_id);
+		lvpp_rlist[lvi_index_i] = prg_list_create();
+		prg_list_insert(lvpp_rlist[lvi_index_i], &(lvp_node[lvi_index_i].node_id), PRGC_LISTPOS_TAIL);
+		int *lvp_tmp_id = (int *)prg_list_access(lvpp_rlist[lvi_index_i], PRGC_LISTPOS_TAIL);
+		printf("rlist[%d]: %d", lvi_index_i, *lvp_tmp_id);
 		while (*lvp_tmp_id != 0)
 		{
-			prg_list_insert(lvpp_rlist[i], &(lvp_node[*lvp_tmp_id].parent_id), PRGC_LISTPOS_TAIL);
-			lvp_tmp_id = (int *)prg_list_access(lvpp_rlist[i], PRGC_LISTPOS_TAIL);
+			prg_list_insert(lvpp_rlist[lvi_index_i], &(lvp_node[*lvp_tmp_id].parent_id), PRGC_LISTPOS_TAIL);
+			lvp_tmp_id = (int *)prg_list_access(lvpp_rlist[lvi_index_i], PRGC_LISTPOS_TAIL);
 			printf("->%d", *lvp_tmp_id);
 		}
-		printf(" (len:%d)\n", prg_list_size(lvpp_rlist[i]));
+		printf(" (len:%d)\n", prg_list_size(lvpp_rlist[lvi_index_i]));
 	}
 	
-	svpp_distance_phase_matrix = (DISTANCE_PHASE_T **)op_prg_mem_alloc(total_num * sizeof(DISTANCE_PHASE_T **));
+	svpp_distance_phase_matrix = (DISTANCE_PHASE_T **)op_prg_mem_alloc(gvi_total_num * sizeof(DISTANCE_PHASE_T **));
 	// init must success before use!!!
-	for (int i=0; i<HE_num+CPE_num+NOISE_num; i++)
+	for (lvi_index_i=0; lvi_index_i<gvi_HE_num+gvi_CPE_num+gvi_NOISE_num; lvi_index_i++)
 	{
-		svpp_distance_phase_matrix[i] = (DISTANCE_PHASE_T *)op_prg_mem_alloc(total_num * sizeof(DISTANCE_PHASE_T));
+		svpp_distance_phase_matrix[lvi_index_i] = (DISTANCE_PHASE_T *)op_prg_mem_alloc(gvi_total_num * sizeof(DISTANCE_PHASE_T));
 	}
 
-	for (int i=0; i<HE_num+CPE_num+NOISE_num; i++)
+	for (lvi_index_i=0; lvi_index_i<gvi_HE_num+gvi_CPE_num+gvi_NOISE_num; lvi_index_i++)
 	{
 		
-		for (int j=0; j<HE_num+CPE_num+NOISE_num; j++)
+		for (lvi_index_j=0; lvi_index_j<gvi_HE_num+gvi_CPE_num+gvi_NOISE_num; lvi_index_j++)
 		{
-			svpp_distance_phase_matrix[i][j].dis_X = 0;
-			svpp_distance_phase_matrix[i][j].dis_Y = 0;
-			svpp_distance_phase_matrix[i][j].dis_Z = 0;
-			svpp_distance_phase_matrix[i][j].dis_total = 0;
-			svpp_distance_phase_matrix[i][j].pha_X = PHASE_ABC;
-			svpp_distance_phase_matrix[i][j].pha_Y = PHASE_ABC;
-			svpp_distance_phase_matrix[i][j].pha_Z = PHASE_ABC;
+			svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_X = 0;
+			svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_Y = 0;
+			svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_Z = 0;
+			svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_total = 0;
+			svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].pha_X = PHASE_ABC;
+			svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].pha_Y = PHASE_ABC;
+			svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].pha_Z = PHASE_ABC;
 			/* find nearest common node */
-			if (i != j)
+			if (lvi_index_i != lvi_index_j)
 			{
-				lvi_len_sub = prg_list_size(lvpp_rlist[i]) - prg_list_size(lvpp_rlist[j]);
-				int h = 0, k = 0;
+				lvi_index_common_i = 0;
+				lvi_index_common_j = 0;
+				lvi_len_sub = prg_list_size(lvpp_rlist[lvi_index_i+1]) - prg_list_size(lvpp_rlist[lvi_index_j+1]);
 				if (lvi_len_sub > 0)
 				{
-					h = lvi_len_sub;
+					lvi_index_common_i = lvi_len_sub;
 				}
 				else 
 				{
-					k = -lvi_len_sub;
+					lvi_index_common_j = -lvi_len_sub;
 				}
-				while (*((int *)prg_list_access(lvpp_rlist[i], h)) != *((int *)prg_list_access(lvpp_rlist[j], k)))
+				while (*((int *)prg_list_access(lvpp_rlist[lvi_index_i+1], lvi_index_common_i)) != *((int *)prg_list_access(lvpp_rlist[lvi_index_j+1], lvi_index_common_j)))
 				{
-					h += 1;
-					k += 1;
+					lvi_index_common_i += 1;
+					lvi_index_common_j += 1;
 				}
 				/* generate distance phase matrix */
-				printf("[%d]->[%d](h=%d, k=%d) ", h, k, i, j);
-				for (int temp_h=0; temp_h<h; temp_h++)
+				printf("[%d]->[%d](lvi_index_common_i=%d, lvi_index_common_j=%d) ", lvi_index_i, lvi_index_j, lvi_index_common_i, lvi_index_common_j);
+				for (lvi_index_temp_i=0; lvi_index_temp_i<lvi_index_common_i; lvi_index_temp_i++)
 				{
-					if (lvp_node[*(int *)prg_list_access(lvpp_rlist[i], temp_h)].phase != PHASE_ABC)
+					if (lvp_node[*(int *)prg_list_access(lvpp_rlist[lvi_index_i+1], lvi_index_temp_i)].phase != PHASE_ABC)
 					{
-						svpp_distance_phase_matrix[i][j].dis_X += lvp_node[*(int *)prg_list_access(lvpp_rlist[i], temp_h)].distance;
-						svpp_distance_phase_matrix[i][j].pha_X = lvp_node[*(int *)prg_list_access(lvpp_rlist[i], temp_h)].phase;
+						svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_X += lvp_node[*(int *)prg_list_access(lvpp_rlist[lvi_index_i+1], lvi_index_temp_i)].distance;
+						svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].pha_X = lvp_node[*(int *)prg_list_access(lvpp_rlist[lvi_index_i+1], lvi_index_temp_i)].phase;
 					}
 					else
 					{
-						svpp_distance_phase_matrix[i][j].dis_Y += lvp_node[*(int *)prg_list_access(lvpp_rlist[i], temp_h)].distance;
+						svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_Y += lvp_node[*(int *)prg_list_access(lvpp_rlist[lvi_index_i+1], lvi_index_temp_i)].distance;
 					}
 				}
-				for (int temp_k=0; temp_k<k; temp_k++)
+				for (lvi_index_temp_j=0; lvi_index_temp_j<lvi_index_common_j; lvi_index_temp_j++)
 				{
-					if (lvp_node[*(int *)prg_list_access(lvpp_rlist[j], temp_k)].phase != PHASE_ABC)
+					if (lvp_node[*(int *)prg_list_access(lvpp_rlist[lvi_index_j+1], lvi_index_temp_j)].phase != PHASE_ABC)
 					{
-						svpp_distance_phase_matrix[i][j].dis_Z += lvp_node[*(int *)prg_list_access(lvpp_rlist[j], temp_k)].distance;
-						svpp_distance_phase_matrix[i][j].pha_Z = lvp_node[*(int *)prg_list_access(lvpp_rlist[j], temp_k)].phase;
+						svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_Z += lvp_node[*(int *)prg_list_access(lvpp_rlist[lvi_index_j+1], lvi_index_temp_j)].distance;
+						svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].pha_Z = lvp_node[*(int *)prg_list_access(lvpp_rlist[lvi_index_j+1], lvi_index_temp_j)].phase;
 					}
 					else
 					{
-						svpp_distance_phase_matrix[i][j].dis_Y += lvp_node[*(int *)prg_list_access(lvpp_rlist[j], temp_k)].distance;
+						svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_Y += lvp_node[*(int *)prg_list_access(lvpp_rlist[lvi_index_j+1], lvi_index_temp_j)].distance;
 					}
 				}
-				svpp_distance_phase_matrix[i][j].dis_total = svpp_distance_phase_matrix[i][j].dis_X + svpp_distance_phase_matrix[i][j].dis_Y + svpp_distance_phase_matrix[i][j].dis_Z;
-				printf("pha_X=%d, pha_Y=%d, pha_Z=%d, dis_X=%lf, dis_Y=%lf, dis_Z=%lf, dis_total=%lf\n", svpp_distance_phase_matrix[i][j].pha_X, svpp_distance_phase_matrix[i][j].pha_Y, svpp_distance_phase_matrix[i][j].pha_Z, svpp_distance_phase_matrix[i][j].dis_X, svpp_distance_phase_matrix[i][j].dis_Y, svpp_distance_phase_matrix[i][j].dis_Z, svpp_distance_phase_matrix[i][j].dis_total);
+				svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_total = svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_X + svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_Y + svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_Z;
+				printf("pha_X=%d, pha_Y=%d, pha_Z=%d, dis_X=%lf, dis_Y=%lf, dis_Z=%lf, dis_total=%lf\n", svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].pha_X, svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].pha_Y, svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].pha_Z, svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_X, svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_Y, svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_Z, svpp_distance_phase_matrix[lvi_index_i][lvi_index_j].dis_total);
 			}
 		}
 	}
 	
 	op_prg_mem_free(lvp_node);
-	for (int i=0; i<HE_num+CPE_num+NOISE_num; i++)
+	for (lvi_index_i=0; lvi_index_i<gvi_HE_num+gvi_CPE_num+gvi_NOISE_num; lvi_index_i++)
 	{
-		op_prg_list_free(lvpp_rlist[i]);
+		op_prg_list_free(lvpp_rlist[lvi_index_i]);
 	}
 	op_prg_mem_free(lvpp_rlist);
 	printf("leave topology_init...\n");
@@ -514,13 +527,13 @@ topology_init(FILE *fin)
 /************************************************************/
 /* Author: jiaying.lu                                      	*/
 /* Last Update: 2014.11.24                                  */
-/* Remarks:                                             	*/
+/* Remarks:  propagation_attenuation_matrix[0] -> node[1]   */
 /************************************************************/
 static void
-propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **propagation_attenuation_matrix)
+propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **propagation_attenuation_matrix, int attenu_num)
 {
 	double a0, a1, k, f;
-	int const attenu_num = HE_num + CPE_num + NOISE_num;
+	int lvi_index_i, lvi_index_j;
 	
 	FIN(propagation_attenuation_generate());
 	printf("enter propagation_attenuation_generate, param [attenu_num=%d].\n", attenu_num);
@@ -531,19 +544,20 @@ propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix,
 	k = 1;
 	f = 5 * pow(10, 6);
 	
-	for (int i=0; i<attenu_num; i++)
+	
+	for (lvi_index_i=0; lvi_index_i<attenu_num; lvi_index_i++)
 	{
-		for (int j=0; j<attenu_num; j++)
+		for (lvi_index_j=0; lvi_index_j<attenu_num; lvi_index_j++)
 		{
-			if (i == j)
+			if (lvi_index_i == lvi_index_j)
 			{
-				propagation_attenuation_matrix[i][j] = 0;
+				propagation_attenuation_matrix[lvi_index_i][lvi_index_j] = 0;
 			}
 			else
 			{
-				propagation_attenuation_matrix[i][j] = exp(-(a0 + a1*pow(f, k))*distance_phase_matrix[i][j].dis_total);
+				propagation_attenuation_matrix[lvi_index_i][lvi_index_j] = exp(-(a0 + a1*pow(f, k))*distance_phase_matrix[lvi_index_i][lvi_index_j].dis_total);
 			}
-			printf("propagation_attenuation_matrix[%d][%d] =%0.4lf\n", i, j, propagation_attenuation_matrix[i][j]);
+			printf("propagation_attenuation_matrix[%d][%d] =%0.4lf\n", lvi_index_i, lvi_index_j, propagation_attenuation_matrix[lvi_index_i][lvi_index_j]);
 		}
 	}
 	
@@ -553,15 +567,48 @@ propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix,
 
 
 /************************************************************/
-/* Author: jiaying.lu                                      	*/
+/* Author: jiaying.lu                                       */
 /* Last Update: 2014.11.25                                  */
-/* Remarks:                                             	*/
+/* Remarks:                                             	 */
 /************************************************************/
 static void
-impedance_correlation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **impedance_correlation_matrix)
+impedance_correlation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **impedance_correlation_matrix, int impedance_correlation_num)
 {
-	FIN(impedance_correlation_generate());
+	int a;
+	int lvi_index_i, lvi_index_j;
+	double lvd_row_sum;
 	
+	FIN(impedance_correlation_generate());
+	printf("enter impedance_correlation_generate, param [impedance_correlation_num=%d].\n", impedance_correlation_num);
+	
+	//formula: c = e^(-d/a)
+	a = 15;
+	
+	for (lvi_index_i=0; lvi_index_i<impedance_correlation_num; lvi_index_i++)
+	{
+		lvd_row_sum = 0;
+		for (lvi_index_j=0; lvi_index_j<impedance_correlation_num; lvi_index_j++)
+		{
+			if (lvi_index_i == lvi_index_j)
+			{
+				impedance_correlation_matrix[lvi_index_i][lvi_index_j] = 0;
+			}
+			else
+			{
+				impedance_correlation_matrix[lvi_index_i][lvi_index_j] = exp(-distance_phase_matrix[lvi_index_i][lvi_index_j].dis_total / a);
+			}
+			lvd_row_sum += impedance_correlation_matrix[lvi_index_i][lvi_index_j];
+		}
+		
+		// row normalization
+		for (lvi_index_j=0; lvi_index_j<impedance_correlation_num; lvi_index_j++)
+		{
+			impedance_correlation_matrix[lvi_index_i][lvi_index_j] /= lvd_row_sum;
+			printf("impedance_correlation_matrix[%d][%d] =%0.4lf\n", lvi_index_i, lvi_index_j, impedance_correlation_matrix[lvi_index_i][lvi_index_j]);
+		}
+	}
+	
+	printf("leave impedance_correlation_generate...\n");
 	FOUT;
 }
 
@@ -608,7 +655,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 		{
 
 
-		FSM_ENTER_NO_VARS ("channel")
+		FSM_ENTER ("channel")
 
 		FSM_BLOCK_SWITCH
 			{
@@ -618,8 +665,9 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				FSM_PROFILE_SECTION_IN ("channel [init enter execs]", state0_enter_exec)
 				{
 				FILE *lvp_fin;
+				int lvi_index_i;
 				
-				/* topology init. */
+				/* step 1: topology init. */
 				// global varieble HE_num, CPE_num, NOISE_num, X_num and total_num init.
 				if ((lvp_fin=fopen("./network.txt", "r")) == NULL)
 				{
@@ -629,20 +677,28 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				{
 					printf("lvp_fin != NULL\n");
 					svpp_distance_phase_matrix = topology_init(lvp_fin);
-					printf("total_num == %d\n", total_num);
+					printf("total_num == %d\n", gvi_total_num);
 				}
 				fclose(lvp_fin);
 				
-				int const num_without_X = HE_num + CPE_num + NOISE_num;
-				
-				/* generate propagation_attenuation_matrix */
-				// propagation_attenuation_matrix malloc memory.
-				svpp_propagation_attenuation_matrix = (double **)op_prg_mem_alloc(num_without_X * sizeof(double *));
-				for (int i=0; i<num_without_X; i++)
+				/* step 2: generate propagation_attenuation_matrix */
+				// malloc memory for propagation_attenuation_matrix.
+				svpp_propagation_attenuation_matrix = (double **)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num+gvi_NOISE_num) * sizeof(double *));
+				for (lvi_index_i=0; lvi_index_i<(gvi_HE_num+gvi_CPE_num+gvi_NOISE_num); lvi_index_i++)
 				{
-					svpp_propagation_attenuation_matrix[i] = (double *)op_prg_mem_alloc(num_without_X * sizeof(double));
+					svpp_propagation_attenuation_matrix[lvi_index_i] = (double *)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num+gvi_NOISE_num) * sizeof(double));
 				}
-				propagation_attenuation_generate(svpp_distance_phase_matrix, svpp_propagation_attenuation_matrix);
+				propagation_attenuation_generate(svpp_distance_phase_matrix, svpp_propagation_attenuation_matrix, gvi_HE_num+gvi_CPE_num+gvi_NOISE_num);
+				
+				/* step 3: generate impedance_correlation_matrix */
+				// malloc memory for impedance_correlation_matrix.
+				svpp_impedance_correlation_matrix = (double **)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num) * sizeof(double *));
+				for (int lvi_index_i=0; lvi_index_i<(gvi_HE_num+gvi_CPE_num); lvi_index_i++)
+				{
+					svpp_impedance_correlation_matrix[lvi_index_i] = (double *)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num) * sizeof(double));
+				}
+				impedance_correlation_generate(svpp_distance_phase_matrix, svpp_impedance_correlation_matrix, gvi_HE_num+gvi_CPE_num);
+				
 				}
 				FSM_PROFILE_SECTION_OUT (state0_enter_exec)
 
@@ -673,7 +729,60 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 
 
 			/** state (idle) transition processing **/
-			FSM_TRANSIT_MISSING ("idle")
+			FSM_PROFILE_SECTION_IN ("channel [idle trans conditions]", state1_trans_conds)
+			FSM_INIT_COND (TIME_TO_UPDATE)
+			FSM_TEST_COND (PPDU_START)
+			FSM_TEST_COND (PPDU_END)
+			FSM_DFLT_COND
+			FSM_TEST_LOGIC ("idle")
+			FSM_PROFILE_SECTION_OUT (state1_trans_conds)
+
+			FSM_TRANSIT_SWITCH
+				{
+				FSM_CASE_TRANSIT (0, 2, state2_enter_exec, ;, "TIME_TO_UPDATE", "", "idle", "update", "tr_6", "channel [idle -> update : TIME_TO_UPDATE / ]")
+				FSM_CASE_TRANSIT (1, 3, state3_enter_exec, ;, "PPDU_START", "", "idle", "receive_PPDU", "tr_8", "channel [idle -> receive_PPDU : PPDU_START / ]")
+				FSM_CASE_TRANSIT (2, 4, state4_enter_exec, ;, "PPDU_END", "", "idle", "send_PPDU", "tr_10", "channel [idle -> send_PPDU : PPDU_END / ]")
+				FSM_CASE_TRANSIT (3, 1, state1_enter_exec, ;, "default", "", "idle", "idle", "tr_12", "channel [idle -> idle : default / ]")
+				}
+				/*---------------------------------------------------------*/
+
+
+
+			/** state (update) enter executives **/
+			FSM_STATE_ENTER_FORCED (2, "update", state2_enter_exec, "channel [update enter execs]")
+
+			/** state (update) exit executives **/
+			FSM_STATE_EXIT_FORCED (2, "update", "channel [update exit execs]")
+
+
+			/** state (update) transition processing **/
+			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "update", "idle", "tr_7", "channel [update -> idle : default / ]")
+				/*---------------------------------------------------------*/
+
+
+
+			/** state (receive_PPDU) enter executives **/
+			FSM_STATE_ENTER_FORCED (3, "receive_PPDU", state3_enter_exec, "channel [receive_PPDU enter execs]")
+
+			/** state (receive_PPDU) exit executives **/
+			FSM_STATE_EXIT_FORCED (3, "receive_PPDU", "channel [receive_PPDU exit execs]")
+
+
+			/** state (receive_PPDU) transition processing **/
+			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "receive_PPDU", "idle", "tr_9", "channel [receive_PPDU -> idle : default / ]")
+				/*---------------------------------------------------------*/
+
+
+
+			/** state (send_PPDU) enter executives **/
+			FSM_STATE_ENTER_FORCED (4, "send_PPDU", state4_enter_exec, "channel [send_PPDU enter execs]")
+
+			/** state (send_PPDU) exit executives **/
+			FSM_STATE_EXIT_FORCED (4, "send_PPDU", "channel [send_PPDU exit execs]")
+
+
+			/** state (send_PPDU) transition processing **/
+			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "send_PPDU", "idle", "tr_11", "channel [send_PPDU -> idle : default / ]")
 				/*---------------------------------------------------------*/
 
 

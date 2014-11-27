@@ -98,7 +98,7 @@ typedef enum INTRPT_T
 	INTRPT_ASSOCIATION_RESPONSE_TIMEOUT = 28,				// interrupt code for MAC control
 	INTRPT_PROBE_RESPONSE_TIMEOUT = 29,						// interrupt code for MAC control
 	INTRPT_TRAFFIC_START = 30,							// interrupt code for traffic
-	INTRPT_MSDU_ARRIVE = 31								// interrupt code for traffic
+	INTRPT_MSDU_ARRIVE = 31,							// interrupt code for traffic
 } INTRPT_T;	
 
 typedef enum MAC_PROTOCOL_T
