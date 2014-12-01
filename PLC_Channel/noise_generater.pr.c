@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char noise_generater_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547C6187 547C6187 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char noise_generater_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547C7BED 547C7BED 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -19,6 +19,8 @@ const char noise_generater_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547C61
 #include "PLC_Channel.h"
 
 #define CHANNEL_INITED		((op_intrpt_type() == OPC_INTRPT_MCAST) && (op_intrpt_code() == INTRPT_CHANNEL_INITED))
+#define PPDU_NEXT_START		((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
+#define PPDU_END		((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_END))
 
 /* End of Header Block */
 
@@ -134,13 +136,6 @@ noise_generater (OP_SIM_CONTEXT_ARG_OPT)
 
 			/** state (idle) enter executives **/
 			FSM_STATE_ENTER_UNFORCED (1, "idle", state1_enter_exec, "noise_generater [idle enter execs]")
-				FSM_PROFILE_SECTION_IN ("noise_generater [idle enter execs]", state1_enter_exec)
-				{
-				printf("**********************\n=============\n");
-				printf("In noise_generater:  total_num == %d\n", gvi_total_num);
-				printf("**********************\n=============\n");
-				}
-				FSM_PROFILE_SECTION_OUT (state1_enter_exec)
 
 			/** blocking after enter executives of unforced state. **/
 			FSM_EXIT (3,"noise_generater")
@@ -151,13 +146,34 @@ noise_generater (OP_SIM_CONTEXT_ARG_OPT)
 
 
 			/** state (idle) transition processing **/
-			FSM_TRANSIT_MISSING ("idle")
+			FSM_PROFILE_SECTION_IN ("noise_generater [idle trans conditions]", state1_trans_conds)
+			FSM_INIT_COND (PPDU_END)
+			FSM_TEST_COND (PPDU_NEXT_START)
+			FSM_DFLT_COND
+			FSM_TEST_LOGIC ("idle")
+			FSM_PROFILE_SECTION_OUT (state1_trans_conds)
+
+			FSM_TRANSIT_SWITCH
+				{
+				FSM_CASE_TRANSIT (0, 3, state3_enter_exec, ;, "PPDU_END", "", "idle", "receive_PPDU", "tr_5", "noise_generater [idle -> receive_PPDU : PPDU_END / ]")
+				FSM_CASE_TRANSIT (1, 4, state4_enter_exec, ;, "PPDU_NEXT_START", "", "idle", "send_PPDU", "tr_7", "noise_generater [idle -> send_PPDU : PPDU_NEXT_START / ]")
+				FSM_CASE_TRANSIT (2, 1, state1_enter_exec, ;, "default", "", "idle", "idle", "tr_9", "noise_generater [idle -> idle : default / ]")
+				}
 				/*---------------------------------------------------------*/
 
 
 
 			/** state (init) enter executives **/
 			FSM_STATE_ENTER_FORCED (2, "init", state2_enter_exec, "noise_generater [init enter execs]")
+				FSM_PROFILE_SECTION_IN ("noise_generater [init enter execs]", state2_enter_exec)
+				{
+				/* set FIRST PPDU send time */
+				Distribution *lvp_exponential_dist = op_dist_load("exponential", 1, 0);
+				double lvd_send_time = op_sim_time()+op_dist_outcome(lvp_exponential_dist);
+				op_intrpt_schedule_self(lvd_send_time, INTRPT_CHANNEL_PPDU_START);
+				printf("[noise_generater.init] first PPDU send time = %lf\n", lvd_send_time);
+				}
+				FSM_PROFILE_SECTION_OUT (state2_enter_exec)
 
 			/** state (init) exit executives **/
 			FSM_STATE_EXIT_FORCED (2, "init", "noise_generater [init exit execs]")
@@ -165,6 +181,32 @@ noise_generater (OP_SIM_CONTEXT_ARG_OPT)
 
 			/** state (init) transition processing **/
 			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "init", "idle", "tr_2", "noise_generater [init -> idle : default / ]")
+				/*---------------------------------------------------------*/
+
+
+
+			/** state (receive_PPDU) enter executives **/
+			FSM_STATE_ENTER_FORCED (3, "receive_PPDU", state3_enter_exec, "noise_generater [receive_PPDU enter execs]")
+
+			/** state (receive_PPDU) exit executives **/
+			FSM_STATE_EXIT_FORCED (3, "receive_PPDU", "noise_generater [receive_PPDU exit execs]")
+
+
+			/** state (receive_PPDU) transition processing **/
+			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "receive_PPDU", "idle", "tr_6", "noise_generater [receive_PPDU -> idle : default / ]")
+				/*---------------------------------------------------------*/
+
+
+
+			/** state (send_PPDU) enter executives **/
+			FSM_STATE_ENTER_FORCED (4, "send_PPDU", state4_enter_exec, "noise_generater [send_PPDU enter execs]")
+
+			/** state (send_PPDU) exit executives **/
+			FSM_STATE_EXIT_FORCED (4, "send_PPDU", "noise_generater [send_PPDU exit execs]")
+
+
+			/** state (send_PPDU) transition processing **/
+			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "send_PPDU", "idle", "tr_8", "noise_generater [send_PPDU -> idle : default / ]")
 				/*---------------------------------------------------------*/
 
 

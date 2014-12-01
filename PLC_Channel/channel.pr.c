@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547C6185 547C6185 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547C75F5 547C75F5 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -24,7 +24,7 @@ const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547C6185 547C6
 #define SYS_INIT				((op_intrpt_type() == OPC_INTRPT_MCAST) && (op_intrpt_code() == INTRPT_SYS_INIT))
 #define TIME_TO_UPDATE			((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_TIME_TO_UPDATE))
 #define PPDU_START				((op_intrpt_type() == OPC_INTRPT_REMOTE) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
-#define PPDU_END				((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_END))			
+#define PPDU_TIME_END			((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_END))			
 
 /* enum */
 typedef enum NODE_TYPE_T
@@ -917,7 +917,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 			FSM_PROFILE_SECTION_IN ("channel [idle trans conditions]", state1_trans_conds)
 			FSM_INIT_COND (TIME_TO_UPDATE)
 			FSM_TEST_COND (PPDU_START)
-			FSM_TEST_COND (PPDU_END)
+			FSM_TEST_COND (PPDU_TIME_END)
 			FSM_DFLT_COND
 			FSM_TEST_LOGIC ("idle")
 			FSM_PROFILE_SECTION_OUT (state1_trans_conds)
@@ -926,7 +926,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				{
 				FSM_CASE_TRANSIT (0, 2, state2_enter_exec, ;, "TIME_TO_UPDATE", "", "idle", "update", "tr_6", "channel [idle -> update : TIME_TO_UPDATE / ]")
 				FSM_CASE_TRANSIT (1, 3, state3_enter_exec, ;, "PPDU_START", "", "idle", "receive_PPDU", "tr_8", "channel [idle -> receive_PPDU : PPDU_START / ]")
-				FSM_CASE_TRANSIT (2, 4, state4_enter_exec, ;, "PPDU_END", "", "idle", "send_PPDU", "tr_10", "channel [idle -> send_PPDU : PPDU_END / ]")
+				FSM_CASE_TRANSIT (2, 4, state4_enter_exec, ;, "PPDU_TIME_END", "", "idle", "send_PPDU", "tr_10", "channel [idle -> send_PPDU : PPDU_TIME_END / ]")
 				FSM_CASE_TRANSIT (3, 1, state1_enter_exec, ;, "default", "", "idle", "idle", "tr_12", "channel [idle -> idle : default / ]")
 				}
 				/*---------------------------------------------------------*/
