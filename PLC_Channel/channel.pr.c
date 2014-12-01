@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547C16CC 547C16CC 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547C6185 547C6185 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -19,10 +19,7 @@ const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547C16CC 547C1
 #include "PLC_def.h"
 #include "PLC_data.h"
 #include "PLC_func.h"
-
-#define INTRPT_CHANNEL_TIME_TO_UPDATE 31
-#define INTRPT_CHANNEL_PPDU_START 32
-#define INTRPT_CHANNEL_PPDU_END 33
+#include "PLC_Channel.h"
 
 #define SYS_INIT				((op_intrpt_type() == OPC_INTRPT_MCAST) && (op_intrpt_code() == INTRPT_SYS_INIT))
 #define TIME_TO_UPDATE			((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_TIME_TO_UPDATE))
@@ -84,6 +81,7 @@ static void impedance_vector_init(double *impedance_vector, int impedance_num, d
 static void impedance_vector_update(double *impedance_vector, int impedance_num, double mean, double std_deviatio);
 
 int gvi_HE_num = 0, gvi_CPE_num = 0, gvi_NOISE_num = 0, gvi_X_num = 0, gvi_total_num = 0;
+Objid gvoid_channel_id;
 
 /* End of Header Block */
 
@@ -795,11 +793,17 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 			FSM_STATE_ENTER_FORCED_NOLABEL (0, "init", "channel [init enter execs]")
 				FSM_PROFILE_SECTION_IN ("channel [init enter execs]", state0_enter_exec)
 				{
+				gvoid_channel_id = op_id_self();
 				FILE *lvp_fin;
 				int lvi_index_i;
 				double lvd_mean, lvd_std_deviation;
 				
-				printf("enter CHANNEL.init.Enter...\n");
+				printf("enter CHANNEL.init...\n");
+				/** //show current dir
+				printf("file=%s,func=%s,line=%d\n",__FILE__,__FUNCTION__,__LINE__);
+				system("dir");
+				**/
+				
 				
 				/* step 1: topology init. */
 				// global varieble HE_num, CPE_num, NOISE_num, X_num and total_num init.
@@ -857,6 +861,9 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				/* set self intrpt, update impedance_vector*/
 				printf("init end. And current sim time: %ld\n", op_sim_time());
 				op_intrpt_schedule_self(op_sim_time()+10, INTRPT_CHANNEL_TIME_TO_UPDATE);
+				
+				/* send channel inited intrpt */
+				op_intrpt_schedule_mcast_global(op_sim_time(), INTRPT_CHANNEL_INITED);
 				}
 				FSM_PROFILE_SECTION_OUT (state0_enter_exec)
 
@@ -874,7 +881,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 			FSM_STATE_ENTER_UNFORCED (1, "idle", state1_enter_exec, "channel [idle enter execs]")
 				FSM_PROFILE_SECTION_IN ("channel [idle enter execs]", state1_enter_exec)
 				{
-				printf("enter CHANNEL.dile..\n");
+				printf("enter CHANNEL.idle..\n");
 				//op_sim_end("success~", "end!", "", "");
 				}
 				FSM_PROFILE_SECTION_OUT (state1_enter_exec)
@@ -891,7 +898,11 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				
 				if (TIME_TO_UPDATE)
 				{
-					printf("CHANNEL.idle.Exit receive INTRPT: TIME_TO_UPDATE.\n");
+					printf("CHANNEL.idle.Exit receive INTRPT: TIME_TO_UPDATE. Enter next state.\n");
+				}
+				else if (INTRPT_CHANNEL_INITED)
+				{
+					printf("CHANNEL.idle.Exit receive INTRPT: INTRPT_CHANNEL_INITED. Stay in idle.\n");
 				}
 				else
 				{

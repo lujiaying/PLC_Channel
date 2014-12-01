@@ -13,7 +13,7 @@ extern double gvd_PHY_medium_busy_threshold_dBm;
 extern double gvd_poweron_deadline;
 extern int gvi_traffic[CONST_TRAFFIC_TYPE_NUMBER];
 extern Objid gvoid_subnet;
-extern Objid gvoid_channel;
+//extern Objid gvoid_channel;
 extern int gvi_HE_number;
 extern int gvi_CPE_number;
 extern HE_PROPERTY_T *gvo_HE_property;
