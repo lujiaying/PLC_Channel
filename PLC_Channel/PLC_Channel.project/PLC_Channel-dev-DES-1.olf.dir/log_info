@@ -1,7 +1,7 @@
 
 [Log Info:]
 version :	1
-row_count :	2
+row_count :	1
 max_log_row :	5000
 max_file_row :	1000
 hide_date :	TRUE
@@ -9,7 +9,7 @@ include_severity :	TRUE
 file_count :	1
 
 [File List:]
-4348_11-27-2014_14.29.21	2	14:29:23 Nov 27 2014	14:29:23 Nov 27 2014
+7104_12-01-2014_07.22.23	1	07:22:24 Dec 01 2014	07:22:24 Dec 01 2014
 
 [Column Dependency List:]
 dependency_count :	1
@@ -23,4 +23,4 @@ log_handle_column_count :	3
 5	Category	2	Low-Level
 6	Class	2	Simulation
 7	SubClass	2	Message
-incident_count :	1
+incident_count :	0

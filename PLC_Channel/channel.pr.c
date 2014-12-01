@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5477353A 5477353A 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547C16CC 547C16CC 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -24,6 +24,7 @@ const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5477353A 54773
 #define INTRPT_CHANNEL_PPDU_START 32
 #define INTRPT_CHANNEL_PPDU_END 33
 
+#define SYS_INIT				((op_intrpt_type() == OPC_INTRPT_MCAST) && (op_intrpt_code() == INTRPT_SYS_INIT))
 #define TIME_TO_UPDATE			((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_TIME_TO_UPDATE))
 #define PPDU_START				((op_intrpt_type() == OPC_INTRPT_REMOTE) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
 #define PPDU_END				((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_END))			
@@ -80,6 +81,7 @@ static void propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_p
 static void impedance_correlation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **impedance_correlation_matrix, int impedance_correlation_num);
 static void phase_coupling_parameter_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **phase_coupling_parameter_matrix, int phase_coupling_num);
 static void impedance_vector_init(double *impedance_vector, int impedance_num, double mean, double std_deviation);
+static void impedance_vector_update(double *impedance_vector, int impedance_num, double mean, double std_deviatio);
 
 int gvi_HE_num = 0, gvi_CPE_num = 0, gvi_NOISE_num = 0, gvi_X_num = 0, gvi_total_num = 0;
 
@@ -376,6 +378,7 @@ topology_init(FILE *fin)
 	int lvi_index_i, lvi_index_j;
 	int lvi_index_common_i, lvi_index_common_j;
 	int lvi_index_temp_i, lvi_index_temp_j;
+	int *lvp_tmp_id;
 	char lvc_msg[100];
 	
 	FIN(topology_init());
@@ -438,7 +441,7 @@ topology_init(FILE *fin)
 	{
 		lvpp_rlist[lvi_index_i] = prg_list_create();
 		prg_list_insert(lvpp_rlist[lvi_index_i], &(lvp_node[lvi_index_i].node_id), PRGC_LISTPOS_TAIL);
-		int *lvp_tmp_id = (int *)prg_list_access(lvpp_rlist[lvi_index_i], PRGC_LISTPOS_TAIL);
+		lvp_tmp_id = (int *)prg_list_access(lvpp_rlist[lvi_index_i], PRGC_LISTPOS_TAIL);
 		printf("rlist[%d]: %d", lvi_index_i, *lvp_tmp_id);
 		while (*lvp_tmp_id != 0)
 		{
@@ -531,7 +534,7 @@ topology_init(FILE *fin)
 
 
 /************************************************************/
-/* Author: jiaying.lu                                      	*/
+/* Author: jiaying.lu                                       */
 /* Last Update: 2014.11.24                                  */
 /* Remarks:  propagation_attenuation_matrix[0] -> node[1]   */
 /************************************************************/
@@ -673,10 +676,70 @@ impedance_vector_init(double *impedance_vector, int impedance_num, double mean, 
 	for (lvi_index_i=0; lvi_index_i<impedance_num; lvi_index_i++)
 	{
 		impedance_vector[lvi_index_i] = op_dist_outcome(lvp_normal_dist);
-		printf("impedance_vector[%d] = %lf", lvi_index_i, impedance_vector[lvi_index_i]);
+		printf("impedance_vector[%d] = %lf\n", lvi_index_i, impedance_vector[lvi_index_i]);
 	}
 	
 	printf("leave impedance_vector_init...\n");
+	FOUT;
+}
+
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2014.11.27                                  */
+/* Remarks:             pack                                	 */
+/************************************************************/
+static void
+impedance_vector_update(double *impedance_vector, int impedance_num, double mean, double std_deviation)
+{
+	int lvi_index_i;
+	double a, b;
+	Distribution *lvp_normal_dist = op_dist_load("normal", 0, std_deviation*std_deviation);
+	
+	FIN(impedance_vector_update());
+	printf("enter impedance_vector_update\n");
+	
+	// formula: y(t) = a*x(t-1) + sqrt(1-a^2)*x(t)
+	a = 0.75;
+	b = sqrt(1 - a*a);
+	
+	for (lvi_index_i=0; lvi_index_i<impedance_num; lvi_index_i++)
+	{
+		impedance_vector[lvi_index_i] = mean + a*(impedance_vector[lvi_index_i]-mean) + b*op_dist_outcome(lvp_normal_dist);
+		printf("impedance_vector[%d] = %lf\n", lvi_index_i, impedance_vector[lvi_index_i]);
+	}
+	
+	printf("leave impedance_vector_update...\n");
+	FOUT;
+}
+
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2014.11.27                                  */
+/* Remarks: Used when calculate SINR                        */
+/*          Free impedance_space_vector after calculate.    */
+/************************************************************/
+static void
+impedance_space_relate_generate(double const *impedance_vector, double const **impedance_correlation_matrix, double *impedance_space_vector, int impedance_num)
+{
+	FIN(impedance_space_relate);
+	
+	FOUT;
+}
+
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2014.11.27                                  */
+/* Remarks: Used when calculate SINR                        */
+/*          Free phase_coupling_coefficient after calculate.*/
+/************************************************************/
+static void
+phase_coupling_coefficient_generate(double const **phase_coupling_parameter_matrix, double **phase_coupling_coefficient_matrix, int phase_coupling_num, double std_deviation)
+{
+	FIN(phase_coupling_coefficient_generate);
+	
 	FOUT;
 }
 
@@ -736,6 +799,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				int lvi_index_i;
 				double lvd_mean, lvd_std_deviation;
 				
+				printf("enter CHANNEL.init.Enter...\n");
 				
 				/* step 1: topology init. */
 				// global varieble HE_num, CPE_num, NOISE_num, X_num and total_num init.
@@ -760,6 +824,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 					svpp_propagation_attenuation_matrix[lvi_index_i] = (double *)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num+gvi_NOISE_num) * sizeof(double));
 				}
 				propagation_attenuation_generate(svpp_distance_phase_matrix, svpp_propagation_attenuation_matrix, gvi_HE_num+gvi_CPE_num+gvi_NOISE_num);
+				
 				
 				/* step 3: generate impedance_correlation_matrix */
 				// malloc memory for impedance_correlation_matrix.
@@ -787,6 +852,11 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				lvd_mean = 90;
 				lvd_std_deviation = 4.5;
 				impedance_vector_init(svp_impedance_vector, gvi_HE_num+gvi_CPE_num, lvd_mean, lvd_std_deviation);
+				
+				
+				/* set self intrpt, update impedance_vector*/
+				printf("init end. And current sim time: %ld\n", op_sim_time());
+				op_intrpt_schedule_self(op_sim_time()+10, INTRPT_CHANNEL_TIME_TO_UPDATE);
 				}
 				FSM_PROFILE_SECTION_OUT (state0_enter_exec)
 
@@ -804,7 +874,8 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 			FSM_STATE_ENTER_UNFORCED (1, "idle", state1_enter_exec, "channel [idle enter execs]")
 				FSM_PROFILE_SECTION_IN ("channel [idle enter execs]", state1_enter_exec)
 				{
-				op_sim_end("success~", "end!", "", "");
+				printf("enter CHANNEL.dile..\n");
+				//op_sim_end("success~", "end!", "", "");
 				}
 				FSM_PROFILE_SECTION_OUT (state1_enter_exec)
 
@@ -814,6 +885,21 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 
 			/** state (idle) exit executives **/
 			FSM_STATE_EXIT_UNFORCED (1, "idle", "channel [idle exit execs]")
+				FSM_PROFILE_SECTION_IN ("channel [idle exit execs]", state1_exit_exec)
+				{
+				char lvc_err_msg[25];
+				
+				if (TIME_TO_UPDATE)
+				{
+					printf("CHANNEL.idle.Exit receive INTRPT: TIME_TO_UPDATE.\n");
+				}
+				else
+				{
+					sprintf(lvc_err_msg, "Error intrpt_code=%d", op_intrpt_code());
+					op_sim_end("Error: Unexpected INTRPT is received at \"idle\" state!", "Error source module: CHANNEL", lvc_err_msg, "");
+				}
+				}
+				FSM_PROFILE_SECTION_OUT (state1_exit_exec)
 
 
 			/** state (idle) transition processing **/
@@ -838,6 +924,17 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 
 			/** state (update) enter executives **/
 			FSM_STATE_ENTER_FORCED (2, "update", state2_enter_exec, "channel [update enter execs]")
+				FSM_PROFILE_SECTION_IN ("channel [update enter execs]", state2_enter_exec)
+				{
+				double lvd_mean, lvd_std_deviation;
+				
+				/* update impedance_vector */
+				lvd_mean = 90;
+				lvd_std_deviation = 4.5;
+				impedance_vector_update(svp_impedance_vector, gvi_HE_num+gvi_CPE_num, lvd_mean, lvd_std_deviation);
+				op_intrpt_schedule_self(op_sim_time()+10, INTRPT_CHANNEL_TIME_TO_UPDATE);
+				}
+				FSM_PROFILE_SECTION_OUT (state2_enter_exec)
 
 			/** state (update) exit executives **/
 			FSM_STATE_EXIT_FORCED (2, "update", "channel [update exit execs]")

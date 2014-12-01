@@ -2,7 +2,7 @@
 "anim_view":	"false"
 "comp_trace_info":	"kernel-based"
 "default_site_position_cache_time_granularity":	"0"
-"duration":	"3600"
+"duration":	"300"
 "kernel_type":	"development"
 "log_endsim_perf":	"true"
 "log_file":	"PLC_Channel-dev-DES-1"
