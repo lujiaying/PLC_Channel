@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547C75F5 547C75F5 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547D180A 547D180A 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -81,7 +81,7 @@ static void impedance_vector_init(double *impedance_vector, int impedance_num, d
 static void impedance_vector_update(double *impedance_vector, int impedance_num, double mean, double std_deviatio);
 
 int gvi_HE_num = 0, gvi_CPE_num = 0, gvi_NOISE_num = 0, gvi_X_num = 0, gvi_total_num = 0;
-Objid gvoid_channel_id;
+Objid gvoid_channel;
 
 /* End of Header Block */
 
@@ -685,7 +685,7 @@ impedance_vector_init(double *impedance_vector, int impedance_num, double mean, 
 /************************************************************/
 /* Author: jiaying.lu                                       */
 /* Last Update: 2014.11.27                                  */
-/* Remarks:             pack                                	 */
+/* Remarks:                                                 */
 /************************************************************/
 static void
 impedance_vector_update(double *impedance_vector, int impedance_num, double mean, double std_deviation)
@@ -793,11 +793,11 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 			FSM_STATE_ENTER_FORCED_NOLABEL (0, "init", "channel [init enter execs]")
 				FSM_PROFILE_SECTION_IN ("channel [init enter execs]", state0_enter_exec)
 				{
-				gvoid_channel_id = op_id_self();
 				FILE *lvp_fin;
 				int lvi_index_i;
 				double lvd_mean, lvd_std_deviation;
 				
+				gvoid_channel = op_id_self();
 				printf("enter CHANNEL.init...\n");
 				/** //show current dir
 				printf("file=%s,func=%s,line=%d\n",__FILE__,__FUNCTION__,__LINE__);

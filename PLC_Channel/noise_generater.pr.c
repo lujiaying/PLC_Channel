@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char noise_generater_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547C7BED 547C7BED 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char noise_generater_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547D1820 547D1820 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -21,6 +21,8 @@ const char noise_generater_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547C7B
 #define CHANNEL_INITED		((op_intrpt_type() == OPC_INTRPT_MCAST) && (op_intrpt_code() == INTRPT_CHANNEL_INITED))
 #define PPDU_NEXT_START		((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
 #define PPDU_END		((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_END))
+
+Objid gvoid_noise_generater;
 
 /* End of Header Block */
 
@@ -167,9 +169,14 @@ noise_generater (OP_SIM_CONTEXT_ARG_OPT)
 			FSM_STATE_ENTER_FORCED (2, "init", state2_enter_exec, "noise_generater [init enter execs]")
 				FSM_PROFILE_SECTION_IN ("noise_generater [init enter execs]", state2_enter_exec)
 				{
+				Distribution *lvp_exponential_dist;
+				double lvd_send_time;
+				
+				gvoid_noise_generater = op_id_self();
+				
 				/* set FIRST PPDU send time */
-				Distribution *lvp_exponential_dist = op_dist_load("exponential", 1, 0);
-				double lvd_send_time = op_sim_time()+op_dist_outcome(lvp_exponential_dist);
+				lvp_exponential_dist = op_dist_load("exponential", 1, 0);
+				lvd_send_time = op_sim_time()+op_dist_outcome(lvp_exponential_dist);
 				op_intrpt_schedule_self(lvd_send_time, INTRPT_CHANNEL_PPDU_START);
 				printf("[noise_generater.init] first PPDU send time = %lf\n", lvd_send_time);
 				}
@@ -200,6 +207,23 @@ noise_generater (OP_SIM_CONTEXT_ARG_OPT)
 
 			/** state (send_PPDU) enter executives **/
 			FSM_STATE_ENTER_FORCED (4, "send_PPDU", state4_enter_exec, "noise_generater [send_PPDU enter execs]")
+				FSM_PROFILE_SECTION_IN ("noise_generater [send_PPDU enter execs]", state4_enter_exec)
+				{
+				/* send PPDU to Channel */
+				Ici *lvp_ici = op_ici_create("PULSE_NOISE_PPDU");
+				PPDU_T *lvp_ppdu = (PPDU_T *)prg_mem_alloc(1*sizeof(PPDU_T));
+				Distribution *lvp_normal_dist = op_dist_load("normal", -22, 1);
+				
+				lvp_ppdu->type = 3;
+				lvp_ppdu->power_linear = op_dist_outcome(lvp_normal_dist);
+				lvp_ppdu->start_time = op_sim_time();
+				lvp_ppdu->end_time = op_sim_time() + 0.01;
+				op_ici_attr_set(lvp_ici, "PPDU_ptr", lvp_ppdu);
+				op_ici_install(lvp_ici);
+				op_intrpt_schedule_remote(op_sim_time(), INTRPT_CHANNEL_PPDU_START, gvoid_channel);
+				op_ici_install(OPC_NIL);
+				}
+				FSM_PROFILE_SECTION_OUT (state4_enter_exec)
 
 			/** state (send_PPDU) exit executives **/
 			FSM_STATE_EXIT_FORCED (4, "send_PPDU", "noise_generater [send_PPDU exit execs]")
