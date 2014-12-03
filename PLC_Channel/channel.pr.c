@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547D180A 547D180A 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547F1992 547F1992 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -103,7 +103,7 @@ typedef struct
 	/* Internal state tracking for FSM */
 	FSM_SYS_STATE
 	/* State Variables */
-	List *	                 		svlist_channel                                  ;
+	Prg_List *	             		svlist_channel                                  ;
 	Stathandle	             		svgstat_SINR                                    ;
 	Stathandle	             		svgstat_active_MPDU_number                      ;
 	DISTANCE_PHASE_T **	    		svpp_distance_phase_matrix                      ;
@@ -677,6 +677,7 @@ impedance_vector_init(double *impedance_vector, int impedance_num, double mean, 
 		printf("impedance_vector[%d] = %lf\n", lvi_index_i, impedance_vector[lvi_index_i]);
 	}
 	
+	op_dist_unload(lvp_normal_dist);
 	printf("leave impedance_vector_init...\n");
 	FOUT;
 }
@@ -833,7 +834,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				/* step 3: generate impedance_correlation_matrix */
 				// malloc memory for impedance_correlation_matrix.
 				svpp_impedance_correlation_matrix = (double **)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num) * sizeof(double *));
-				for (int lvi_index_i=0; lvi_index_i<(gvi_HE_num+gvi_CPE_num); lvi_index_i++)
+				for (lvi_index_i=0; lvi_index_i<(gvi_HE_num+gvi_CPE_num); lvi_index_i++)
 				{
 					svpp_impedance_correlation_matrix[lvi_index_i] = (double *)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num) * sizeof(double));
 				}
@@ -843,7 +844,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				/* step 4: generate phase_coupling_parameter_matrix */
 				// malloc memory for phase_coupling_parameter_matrix.
 				svpp_phase_coupling_parameter_matrix = (double **)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num+gvi_NOISE_num) * sizeof(double *));
-				for (int lvi_index_i=0; lvi_index_i<(gvi_HE_num+gvi_CPE_num+gvi_NOISE_num); lvi_index_i++)
+				for (lvi_index_i=0; lvi_index_i<(gvi_HE_num+gvi_CPE_num+gvi_NOISE_num); lvi_index_i++)
 				{
 					svpp_phase_coupling_parameter_matrix[lvi_index_i] = (double *)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num+gvi_NOISE_num) * sizeof(double));
 				}
@@ -856,6 +857,10 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				lvd_mean = 90;
 				lvd_std_deviation = 4.5;
 				impedance_vector_init(svp_impedance_vector, gvi_HE_num+gvi_CPE_num, lvd_mean, lvd_std_deviation);
+				
+				
+				/* init channel PPDU list */
+				svlist_channel = prg_list_create();
 				
 				
 				/* set self intrpt, update impedance_vector*/
@@ -903,6 +908,10 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				else if (INTRPT_CHANNEL_INITED)
 				{
 					printf("CHANNEL.idle.Exit receive INTRPT: INTRPT_CHANNEL_INITED. Stay in idle.\n");
+				}
+				else if (PPDU_START)
+				{
+					printf("CHANNEL.idle.Exit receive INTRPT: PPDU_START. Enter next state.\n");
 				}
 				else
 				{
@@ -959,6 +968,21 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 
 			/** state (receive_PPDU) enter executives **/
 			FSM_STATE_ENTER_FORCED (3, "receive_PPDU", state3_enter_exec, "channel [receive_PPDU enter execs]")
+				FSM_PROFILE_SECTION_IN ("channel [receive_PPDU enter execs]", state3_enter_exec)
+				{
+				/* receive PPDU */
+				Ici *lvp_ici;
+				PPDU_T *lvp_ppdu;
+				
+				lvp_ici = op_intrpt_ici();
+				op_ici_attr_get(lvp_ici, "PPDU_ptr", &lvp_ppdu);
+				op_ici_destroy(lvp_ici);
+				lvp_ici = OPC_NIL;
+				
+				/* insert PPDU to channel list */
+				prg_list_insert(svlist_channel, lvp_ppdu, PRGC_LISTPOS_TAIL);
+				}
+				FSM_PROFILE_SECTION_OUT (state3_enter_exec)
 
 			/** state (receive_PPDU) exit executives **/
 			FSM_STATE_EXIT_FORCED (3, "receive_PPDU", "channel [receive_PPDU exit execs]")

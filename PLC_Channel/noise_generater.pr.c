@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char noise_generater_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547D1820 547D1820 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char noise_generater_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547E706D 547E706D 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -210,9 +210,13 @@ noise_generater (OP_SIM_CONTEXT_ARG_OPT)
 				FSM_PROFILE_SECTION_IN ("noise_generater [send_PPDU enter execs]", state4_enter_exec)
 				{
 				/* send PPDU to Channel */
-				Ici *lvp_ici = op_ici_create("PULSE_NOISE_PPDU");
-				PPDU_T *lvp_ppdu = (PPDU_T *)prg_mem_alloc(1*sizeof(PPDU_T));
-				Distribution *lvp_normal_dist = op_dist_load("normal", -22, 1);
+				Ici *lvp_ici;
+				PPDU_T *lvp_ppdu;
+				Distribution *lvp_normal_dist;
+				
+				lvp_ici = op_ici_create("PULSE_NOISE_PPDU");
+				lvp_ppdu = (PPDU_T *)prg_mem_alloc(1*sizeof(PPDU_T));
+				lvp_normal_dist = op_dist_load("normal", -22, 1);
 				
 				lvp_ppdu->type = 3;
 				lvp_ppdu->power_linear = op_dist_outcome(lvp_normal_dist);
