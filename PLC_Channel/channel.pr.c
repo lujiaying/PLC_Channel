@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 547F1992 547F1992 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54816E0C 54816E0C 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -887,7 +887,6 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				FSM_PROFILE_SECTION_IN ("channel [idle enter execs]", state1_enter_exec)
 				{
 				printf("enter CHANNEL.idle..\n");
-				//op_sim_end("success~", "end!", "", "");
 				}
 				FSM_PROFILE_SECTION_OUT (state1_enter_exec)
 
@@ -901,22 +900,24 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				{
 				char lvc_err_msg[25];
 				
+				printf("Leave channel.idle. ");
+				
 				if (TIME_TO_UPDATE)
 				{
-					printf("CHANNEL.idle.Exit receive INTRPT: TIME_TO_UPDATE. Enter next state.\n");
-				}
-				else if (INTRPT_CHANNEL_INITED)
-				{
-					printf("CHANNEL.idle.Exit receive INTRPT: INTRPT_CHANNEL_INITED. Stay in idle.\n");
+					printf("receive INTRPT: TIME_TO_UPDATE. Enter next state.\n");
 				}
 				else if (PPDU_START)
 				{
-					printf("CHANNEL.idle.Exit receive INTRPT: PPDU_START. Enter next state.\n");
+					printf("receive INTRPT: PPDU_START. Enter next state.\n");
+				}
+				else if (INTRPT_CHANNEL_INITED)
+				{
+					printf("receive INTRPT: INTRPT_CHANNEL_INITED. Stay in idle.\n");
 				}
 				else
 				{
 					sprintf(lvc_err_msg, "Error intrpt_code=%d", op_intrpt_code());
-					op_sim_end("Error: Unexpected INTRPT is received at \"idle\" state!", "Error source module: CHANNEL", lvc_err_msg, "");
+					op_sim_end("Error: Unexpected INTRPT is received at \"channel.idle.Exit\" state!", "Error source module: CHANNEL", lvc_err_msg, "");
 				}
 				}
 				FSM_PROFILE_SECTION_OUT (state1_exit_exec)
