@@ -1,3 +1,5 @@
+#include <opnet.h>
+
 #ifndef _PLC_CHANNEL
 #define _PLC_CHANNEL
 

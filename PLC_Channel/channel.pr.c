@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54816E0C 54816E0C 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54846F4B 54846F4B 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -21,7 +21,6 @@ const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54816E0C 54816
 #include "PLC_func.h"
 #include "PLC_Channel.h"
 
-#define SYS_INIT				((op_intrpt_type() == OPC_INTRPT_MCAST) && (op_intrpt_code() == INTRPT_SYS_INIT))
 #define TIME_TO_UPDATE			((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_TIME_TO_UPDATE))
 #define PPDU_START				((op_intrpt_type() == OPC_INTRPT_REMOTE) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
 #define PPDU_TIME_END			((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_END))			
@@ -111,6 +110,7 @@ typedef struct
 	double **	              		svpp_impedance_correlation_matrix               ;
 	double **	              		svpp_phase_coupling_parameter_matrix            ;
 	double *	               		svp_impedance_vector                            ;
+	Prg_List *	             		svlist_noise_ppdu                               ;
 	} channel_state;
 
 #define svlist_channel          		op_sv_ptr->svlist_channel
@@ -121,6 +121,7 @@ typedef struct
 #define svpp_impedance_correlation_matrix		op_sv_ptr->svpp_impedance_correlation_matrix
 #define svpp_phase_coupling_parameter_matrix		op_sv_ptr->svpp_phase_coupling_parameter_matrix
 #define svp_impedance_vector    		op_sv_ptr->svp_impedance_vector
+#define svlist_noise_ppdu       		op_sv_ptr->svlist_noise_ppdu
 
 /* These macro definitions will define a local variable called	*/
 /* "op_sv_ptr" in each function containing a FIN statement.	*/
@@ -861,7 +862,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				
 				/* init channel PPDU list */
 				svlist_channel = prg_list_create();
-				
+				svlist_noise_ppdu = prg_list_create();
 				
 				/* set self intrpt, update impedance_vector*/
 				printf("init end. And current sim time: %ld\n", op_sim_time());
@@ -904,15 +905,19 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				
 				if (TIME_TO_UPDATE)
 				{
-					printf("receive INTRPT: TIME_TO_UPDATE. Enter next state.\n");
+					printf("receive SELF INTRPT: TIME_TO_UPDATE.\n");
 				}
 				else if (PPDU_START)
 				{
-					printf("receive INTRPT: PPDU_START. Enter next state.\n");
+					printf("receive REMOTE INTRPT: PPDU_START.\n");
+				}
+				else if (PPDU_TIME_END)
+				{
+					printf("receive SELF INTRPT: PPDU_END.\n");
 				}
 				else if (INTRPT_CHANNEL_INITED)
 				{
-					printf("receive INTRPT: INTRPT_CHANNEL_INITED. Stay in idle.\n");
+					printf("receive MCAST INTRPT: CHANNEL_INITED. Stay in idle.\n");
 				}
 				else
 				{
@@ -981,7 +986,15 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				lvp_ici = OPC_NIL;
 				
 				/* insert PPDU to channel list */
-				prg_list_insert(svlist_channel, lvp_ppdu, PRGC_LISTPOS_TAIL);
+				if (lvp_ppdu->type < 3)
+				{
+					prg_list_insert(svlist_channel, lvp_ppdu, PRGC_LISTPOS_TAIL);
+				}
+				else
+				{
+					printf("get a noise PPDU from noise_%d\n", lvp_ppdu->PPDU_index);
+					prg_list_insert(svlist_noise_ppdu, lvp_ppdu, PRGC_LISTPOS_TAIL);
+				}
 				}
 				FSM_PROFILE_SECTION_OUT (state3_enter_exec)
 
@@ -1053,6 +1066,7 @@ _op_channel_terminate (OP_SIM_CONTEXT_ARG_OPT)
 #undef svpp_impedance_correlation_matrix
 #undef svpp_phase_coupling_parameter_matrix
 #undef svp_impedance_vector
+#undef svlist_noise_ppdu
 
 #undef FIN_PREAMBLE_DEC
 #undef FIN_PREAMBLE_CODE
@@ -1147,6 +1161,11 @@ _op_channel_svar (void * gen_ptr, const char * var_name, void ** var_p_ptr)
 	if (strcmp ("svp_impedance_vector" , var_name) == 0)
 		{
 		*var_p_ptr = (void *) (&prs_ptr->svp_impedance_vector);
+		FOUT
+		}
+	if (strcmp ("svlist_noise_ppdu" , var_name) == 0)
+		{
+		*var_p_ptr = (void *) (&prs_ptr->svlist_noise_ppdu);
 		FOUT
 		}
 	*var_p_ptr = (void *)OPC_NIL;
