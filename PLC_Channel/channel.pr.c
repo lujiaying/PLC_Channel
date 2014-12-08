@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54846F4B 54846F4B 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54850413 54850413 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -976,24 +976,34 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 			FSM_STATE_ENTER_FORCED (3, "receive_PPDU", state3_enter_exec, "channel [receive_PPDU enter execs]")
 				FSM_PROFILE_SECTION_IN ("channel [receive_PPDU enter execs]", state3_enter_exec)
 				{
-				/* receive PPDU */
 				Ici *lvp_ici;
 				PPDU_T *lvp_ppdu;
 				
+				/* receive PPDU */
 				lvp_ici = op_intrpt_ici();
 				op_ici_attr_get(lvp_ici, "PPDU_ptr", &lvp_ppdu);
 				op_ici_destroy(lvp_ici);
 				lvp_ici = OPC_NIL;
+				printf("[channel.receive_PPDU] type=%d, start_time=%lf, end_time=%lf\n", lvp_ppdu->type, lvp_ppdu->start_time, lvp_ppdu->end_time);
 				
-				/* insert PPDU to channel list */
 				if (lvp_ppdu->type < 3)
 				{
+					/* insert PPDU to channel list */
 					prg_list_insert(svlist_channel, lvp_ppdu, PRGC_LISTPOS_TAIL);
+					/* update PPDU attribute */
+					lvp_ppdu->PPDU_index = prg_list_size(svlist_channel) - 1;
+					/* set self intrpt at end time*/
+					lvp_ici = op_ici_create("PPDU");
+					op_ici_attr_set(lvp_ici, "PPDU_index", &(lvp_ppdu->PPDU_index));
+					op_ici_install(lvp_ici);
+					op_intrpt_schedule_self(lvp_ppdu->end_time, INTRPT_CHANNEL_PPDU_END);
+					op_ici_install(OPC_NIL);
 				}
 				else
 				{
+					/* insert PPDU to channel list */
 					printf("get a noise PPDU from noise_%d\n", lvp_ppdu->PPDU_index);
-					prg_list_insert(svlist_noise_ppdu, lvp_ppdu, PRGC_LISTPOS_TAIL);
+					prg_list_insert(svlist_noise_ppdu, lvp_ppdu, PRGC_LISTPOS_TAIL);	
 				}
 				}
 				FSM_PROFILE_SECTION_OUT (state3_enter_exec)
@@ -1010,6 +1020,22 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 
 			/** state (send_PPDU) enter executives **/
 			FSM_STATE_ENTER_FORCED (4, "send_PPDU", state4_enter_exec, "channel [send_PPDU enter execs]")
+				FSM_PROFILE_SECTION_IN ("channel [send_PPDU enter execs]", state4_enter_exec)
+				{
+				Ici *lvp_ici;
+				int *lvp_PPDU_index;
+				
+				lvp_ici = op_intrpt_ici();
+				op_ici_attr_get(lvp_ici, "PPDU_index", &lvp_PPDU_index);
+				op_ici_destroy(lvp_ici);
+				printf("[channel.send_PPDU] PPDU_index is %d, current channel_list len=%d\n", *lvp_PPDU_index, prg_list_size(svlist_channel));
+				
+				/* calculate SINR*/
+				
+				
+				/* send PPDU back to PHY*/
+				}
+				FSM_PROFILE_SECTION_OUT (state4_enter_exec)
 
 			/** state (send_PPDU) exit executives **/
 			FSM_STATE_EXIT_FORCED (4, "send_PPDU", "channel [send_PPDU exit execs]")
