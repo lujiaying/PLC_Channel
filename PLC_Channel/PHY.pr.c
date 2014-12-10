@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5487B828 5487B828 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5487FFCB 5487FFCB 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -161,7 +161,7 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 				}
 				else if (PPDU_END)
 				{
-					printf("receive REMOTE INTRPT: PPDU_END.");
+					printf("receive REMOTE INTRPT: PPDU_END.\n");
 				}
 				else if (INTRPT_CHANNEL_INITED)
 				{
@@ -242,6 +242,28 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 
 			/** state (receive_Channel_PPDU) enter executives **/
 			FSM_STATE_ENTER_FORCED (3, "receive_Channel_PPDU", state3_enter_exec, "PHY [receive_Channel_PPDU enter execs]")
+				FSM_PROFILE_SECTION_IN ("PHY [receive_Channel_PPDU enter execs]", state3_enter_exec)
+				{
+				Ici *lvp_ici;
+				PPDU_T *lvp_PPDU;
+				
+				/* receive PPDU from Channel*/
+				lvp_ici = op_intrpt_ici();
+				op_ici_attr_get(lvp_ici, "PPDU_ptr", &lvp_PPDU);
+				op_ici_destroy(lvp_ici);
+				lvp_ici = OPC_NIL;
+				
+				printf("\n=========================================\n");
+				printf("|            receive_channel_PPDU         |\n");
+				printf("transmitter:%d, receiver:%d, \n", lvp_PPDU->transmitter_node_index, lvp_PPDU->receiver_node_index);
+				printf("power_linear:%lf, \n", lvp_PPDU->power_linear);
+				printf("start_time:%lf, end_time:%lf\n", lvp_PPDU->start_time, lvp_PPDU->end_time);
+				printf("============================================\n");
+				
+				/* free memory */
+				prg_mem_free(lvp_PPDU);
+				}
+				FSM_PROFILE_SECTION_OUT (state3_enter_exec)
 
 			/** state (receive_Channel_PPDU) exit executives **/
 			FSM_STATE_EXIT_FORCED (3, "receive_Channel_PPDU", "PHY [receive_Channel_PPDU exit execs]")

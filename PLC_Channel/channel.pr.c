@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5487F8F3 5487F8F3 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5487FEB6 5487FEB6 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -161,11 +161,11 @@ PPDU_receive_power_calculate(int lvi_receiver_node_index, PPDU_T *lvp_PPDU)
 	lvd_pathloss_linear = svpp_propagation_attenuation_matrix[lvp_PPDU->transmitter_node_index][lvi_receiver_node_index];
 	
 	lvd_impedance_ratio = svp_impedance_vector[lvi_receiver_node_index] / 75.0;
-	lvd_matchmiss_linear = 4 * (lvd_impedance_ratio) / (1+(lvd_impedance_ratio)*(lvd_impedance_ratio));
+	lvd_matchmiss_linear = 4 * lvd_impedance_ratio / pow(1+lvd_impedance_ratio, 2);
 	
 	printf("[PPDU_receive_power_calculate] ppdu_index:%d, receiver_node:%d, power:%lf mw, pathloss:%lf, mis:%lf.\n", lvp_PPDU->PPDU_index, lvi_receiver_node_index, lvp_PPDU->power_linear, lvd_pathloss_linear, lvd_matchmiss_linear);
     
-	FRET(10 * log(lvp_PPDU->power_linear*lvd_pathloss_linear*lvd_matchmiss_linear));
+	FRET(10 * log(lvp_PPDU->power_linear*(1-lvd_pathloss_linear)*lvd_matchmiss_linear));
 }
 
 
@@ -697,16 +697,16 @@ impedance_vector_init(double *impedance_vector, int impedance_num, double mean, 
 	Distribution *lvp_normal_dist = op_dist_load("normal", mean, std_deviation*std_deviation);
 	
 	FIN(impedance_vector_init());
-	printf("enter impedance_vector_init\n");
+	//printf("enter impedance_vector_init\n");
 	
 	for (lvi_index_i=0; lvi_index_i<impedance_num; lvi_index_i++)
 	{
 		impedance_vector[lvi_index_i] = op_dist_outcome(lvp_normal_dist);
-		printf("impedance_vector[%d] = %lf\n", lvi_index_i, impedance_vector[lvi_index_i]);
+		//printf("impedance_vector[%d] = %lf\n", lvi_index_i, impedance_vector[lvi_index_i]);
 	}
 	
 	op_dist_unload(lvp_normal_dist);
-	printf("leave impedance_vector_init...\n");
+	//printf("leave impedance_vector_init...\n");
 	FOUT;
 }
 
@@ -724,7 +724,7 @@ impedance_vector_update(double *impedance_vector, int impedance_num, double mean
 	Distribution *lvp_normal_dist = op_dist_load("normal", 0, std_deviation*std_deviation);
 	
 	FIN(impedance_vector_update());
-	printf("enter impedance_vector_update\n");
+	//printf("enter impedance_vector_update\n");
 	
 	// formula: y(t) = a*x(t-1) + sqrt(1-a^2)*x(t)
 	a = 0.75;
@@ -733,10 +733,10 @@ impedance_vector_update(double *impedance_vector, int impedance_num, double mean
 	for (lvi_index_i=0; lvi_index_i<impedance_num; lvi_index_i++)
 	{
 		impedance_vector[lvi_index_i] = mean + a*(impedance_vector[lvi_index_i]-mean) + b*op_dist_outcome(lvp_normal_dist);
-		printf("impedance_vector[%d] = %lf\n", lvi_index_i, impedance_vector[lvi_index_i]);
+		//printf("impedance_vector[%d] = %lf\n", lvi_index_i, impedance_vector[lvi_index_i]);
 	}
 	
-	printf("leave impedance_vector_update...\n");
+	//printf("leave impedance_vector_update...\n");
 	FOUT;
 }
 
@@ -1071,6 +1071,8 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				int *lvp_PPDU_index;
 				int lvi_PPDU_list_index, lvi_PPDU_list_num;
 				PPDU_T *lvp_PPDU;
+				int lvi_actual_receiver_index;
+				
 				
 				/* find PPDU related to the current interrupt */
 				lvp_ici = op_intrpt_ici();
@@ -1098,6 +1100,14 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				
 				/* PPDU segment refresh*/
 				PPDU_sinr_segment_refresh();
+				
+				
+				/* free memory */
+				for (lvi_actual_receiver_index = 0; lvi_actual_receiver_index < lvp_PPDU->actual_receiver_number; lvi_actual_receiver_index++)
+				{
+					prg_list_free(lvp_PPDU->actual_receiver_array[lvi_actual_receiver_index].segment_sinr);
+				}
+				op_prg_mem_free(lvp_PPDU->actual_receiver_array);
 				
 				
 				/* send PPDU back to PHY*/
