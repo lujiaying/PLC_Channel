@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5487FEB6 5487FEB6 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54880A3D 54880A3D 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -17,7 +17,7 @@ const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5487FEB6 5487F
 /* Header Block */
 
 #include "PLC_def.h"
-#include "PLC_data.h"
+//#include "PLC_data.h"
 #include "PLC_func.h"
 #include "PLC_Channel.h"
 
@@ -165,7 +165,7 @@ PPDU_receive_power_calculate(int lvi_receiver_node_index, PPDU_T *lvp_PPDU)
 	
 	printf("[PPDU_receive_power_calculate] ppdu_index:%d, receiver_node:%d, power:%lf mw, pathloss:%lf, mis:%lf.\n", lvp_PPDU->PPDU_index, lvi_receiver_node_index, lvp_PPDU->power_linear, lvd_pathloss_linear, lvd_matchmiss_linear);
     
-	FRET(10 * log(lvp_PPDU->power_linear*(1-lvd_pathloss_linear)*lvd_matchmiss_linear));
+	FRET(lvp_PPDU->power_linear*(1-lvd_pathloss_linear)*lvd_matchmiss_linear);
 }
 
 
@@ -265,10 +265,10 @@ PPDU_sinr_segment_refresh()
 	int lvi_PPDU_index_2;
 	PPDU_T *lvp_PPDU_1;
 	PPDU_T *lvp_PPDU_2;
-	double lvd_signal_power_dB;
-	double lvd_interference_power_dB;
+	double lvd_signal_power_linear;
+	double lvd_interference_power_linear;
 	double lvd_period_noise_power_dB, lvd_background_noise_power_dB;
-	double lvd_sinr_dB;
+	double lvd_sinr_linear;
 	SEGMENT_SINR_T *lvp_segment_sinr;
 	int lvi_actual_receiver_number;
 	int lvi_actual_receiver_index;
@@ -292,8 +292,8 @@ PPDU_sinr_segment_refresh()
 		{
 			lvi_actual_receiver_node_index = lvp_PPDU_1->actual_receiver_array[lvi_actual_receiver_index].actual_receiver_node_index;
 		
-			lvd_signal_power_dB = 0.0;        
-			lvd_interference_power_dB = 0.0;	
+			lvd_signal_power_linear = 0.0;        
+			lvd_interference_power_linear = 0.0;	
 			/* loop for all PPDUs */
 			for (lvi_PPDU_index_2 = 0; lvi_PPDU_index_2 < lvi_PPDU_number; lvi_PPDU_index_2++)
 			{
@@ -301,25 +301,25 @@ PPDU_sinr_segment_refresh()
 				/* signal */
 				if (lvi_PPDU_index_1 == lvi_PPDU_index_2)
 				{
-			    	if (lvd_signal_power_dB > 0.0)
+			    	if (lvd_signal_power_linear > 0.0)
 					{
 						op_sim_end("Error: Duplicate signal PPDU!", "Error source module: PLC_CHANNEL", "Error source function: PPDU_sinr_segment_refresh()", "");
 					}	
 					else
 					{
-						lvd_signal_power_dB = PPDU_receive_power_calculate(lvi_actual_receiver_node_index, lvp_PPDU_2);
+						lvd_signal_power_linear = PPDU_receive_power_calculate(lvi_actual_receiver_node_index, lvp_PPDU_2);
 					}	
 				}	
 				/* otherwise, interference */
 				else
 				{
-					lvd_interference_power_dB += PPDU_receive_power_calculate(lvi_actual_receiver_node_index, lvp_PPDU_2);
+					lvd_interference_power_linear += PPDU_receive_power_calculate(lvi_actual_receiver_node_index, lvp_PPDU_2);
 				}
 			}
 			
-			lvd_sinr_dB = lvd_signal_power_dB / (lvd_interference_power_dB + lvd_period_noise_power_dB + lvd_background_noise_power_dB);
+			lvd_sinr_linear = lvd_signal_power_linear / (lvd_interference_power_linear + pow(10, lvd_period_noise_power_dB/10.0) + pow(10, lvd_background_noise_power_dB/10.0));
 			lvp_segment_sinr = (SEGMENT_SINR_T *)op_prg_mem_alloc(sizeof(SEGMENT_SINR_T));
-			lvp_segment_sinr->segment_sinr_dB = lvd_sinr_dB;
+			lvp_segment_sinr->segment_sinr_dB = 10*log(lvd_sinr_linear);
 			lvp_segment_sinr->segment_start_time = op_sim_time();
 			op_prg_list_insert(lvp_PPDU_1->actual_receiver_array[lvi_actual_receiver_index].segment_sinr, lvp_segment_sinr, OPC_LISTPOS_TAIL);
 		}
@@ -340,7 +340,7 @@ PPDU_sinr_calculate(PPDU_T *lvp_PPDU)
 	int lvi_sinr_segment_number;
 	int lvi_sinr_segment_index;
 	SEGMENT_SINR_T *lvp_segment_sinr;
-	double lvd_sinr_dB;
+	double lvd_sinr_linear;
 	double lvd_segment_end_time;
 	int lvi_actual_receiver_number;
 	int lvi_actual_receiver_index;
@@ -351,23 +351,24 @@ PPDU_sinr_calculate(PPDU_T *lvp_PPDU)
 	lvi_actual_receiver_number = lvp_PPDU->actual_receiver_number;
 	
 	/* calculate for each actual receiver of each MPDU */
-   for (lvi_actual_receiver_index = 0; lvi_actual_receiver_index < lvi_actual_receiver_number; lvi_actual_receiver_index++)
+	for (lvi_actual_receiver_index = 0; lvi_actual_receiver_index < lvi_actual_receiver_number; lvi_actual_receiver_index++)
 	{
 		lvlist_segment_sinr = lvp_PPDU->actual_receiver_array[lvi_actual_receiver_index].segment_sinr;
 		lvi_sinr_segment_number = op_prg_list_size(lvlist_segment_sinr);
 		lvd_segment_end_time = lvp_PPDU->end_time;
-		lvd_sinr_dB = 0.0;
+		lvd_sinr_linear = 0.0;
 		
 		for (lvi_sinr_segment_index = lvi_sinr_segment_number - 1; lvi_sinr_segment_index >= 0; lvi_sinr_segment_index--)
 		{
 			lvp_segment_sinr = (SEGMENT_SINR_T *)op_prg_list_access(lvlist_segment_sinr, lvi_sinr_segment_index);
-			lvd_sinr_dB += lvp_segment_sinr->segment_sinr_dB * (lvd_segment_end_time - lvp_segment_sinr->segment_start_time);    // sum of time-weighted dB value
+			lvd_sinr_linear += lvp_segment_sinr->segment_sinr_dB * (lvd_segment_end_time - lvp_segment_sinr->segment_start_time);    // sum of time-weighted dB value
 			lvd_segment_end_time = lvp_segment_sinr->segment_start_time;
 		}
 	
-		lvp_PPDU->actual_receiver_array[lvi_actual_receiver_index].PPDU_sinr_dB = lvd_sinr_dB/(lvp_PPDU->end_time - lvp_PPDU->start_time);
+		lvp_PPDU->actual_receiver_array[lvi_actual_receiver_index].PPDU_sinr_dB = lvd_sinr_linear/(lvp_PPDU->end_time - lvp_PPDU->start_time);
 	
 		/* write MPDU SINR statistics */
+		/**
 		op_stat_write(svgstat_SINR, lvp_PPDU->actual_receiver_array[lvi_actual_receiver_index].PPDU_sinr_dB);
 		if (lvp_PPDU->actual_receiver_array[lvi_actual_receiver_index].actual_receiver_node_index < gvi_HE_number)
 		{	
@@ -376,7 +377,7 @@ PPDU_sinr_calculate(PPDU_T *lvp_PPDU)
 		else
 		{	
 			op_stat_write(gvo_CPE_property[lvp_PPDU->actual_receiver_array[lvi_actual_receiver_index].actual_receiver_node_index - gvi_HE_number].PHY_SINR_stathandle, lvp_PPDU->actual_receiver_array[lvi_actual_receiver_index].PPDU_sinr_dB);
-		}	
+		}	**/
 	}
 	
 	FOUT;
@@ -772,7 +773,6 @@ phase_coupling_coefficient_generate(double const **phase_coupling_parameter_matr
 	FOUT;
 }
 
-
 /* End of Function Block */
 
 /* Undefine optional tracing in FIN/FOUT/FRET */
@@ -1096,7 +1096,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				
 				
 				/* calculate SINR*/
-				
+				PPDU_sinr_calculate(lvp_PPDU);
 				
 				/* PPDU segment refresh*/
 				PPDU_sinr_segment_refresh();

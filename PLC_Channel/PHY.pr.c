@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5487FFCB 5487FFCB 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548806C8 548806C8 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -253,14 +253,15 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 				op_ici_destroy(lvp_ici);
 				lvp_ici = OPC_NIL;
 				
-				printf("\n=========================================\n");
+				printf("\n============================================\n");
 				printf("|            receive_channel_PPDU         |\n");
 				printf("transmitter:%d, receiver:%d, \n", lvp_PPDU->transmitter_node_index, lvp_PPDU->receiver_node_index);
-				printf("power_linear:%lf, \n", lvp_PPDU->power_linear);
+				printf("power_linear:%lf, PPDU_sinr_dB:%lf\n", lvp_PPDU->power_linear, lvp_PPDU->actual_receiver_array[0].PPDU_sinr_dB);
 				printf("start_time:%lf, end_time:%lf\n", lvp_PPDU->start_time, lvp_PPDU->end_time);
 				printf("============================================\n");
 				
 				/* free memory */
+				op_prg_mem_free(lvp_PPDU->actual_receiver_array);
 				prg_mem_free(lvp_PPDU);
 				}
 				FSM_PROFILE_SECTION_OUT (state3_enter_exec)
