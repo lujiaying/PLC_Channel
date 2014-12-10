@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548503E7 548503E7 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5487B828 5487B828 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -20,6 +20,8 @@ const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548503E7 548503E7 
 
 #define PPDU_TIME_START		((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
 #define PPDU_END			((op_intrpt_type() == OPC_INTRPT_REMOTE) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_END))			
+
+Objid gvoid_PHY;
 
 /* End of Header Block */
 
@@ -113,6 +115,8 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 				Distribution *lvp_exp_dist;
 				double lvd_ppdu_time;
 				
+				gvoid_PHY = op_id_self();
+				
 				/* schedule first PPDU */
 				lvp_exp_dist = op_dist_load("exponential", 1, 0);
 				lvd_ppdu_time = op_dist_outcome(lvp_exp_dist);
@@ -195,7 +199,7 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 				FSM_PROFILE_SECTION_IN ("PHY [send_PPDU_2Channel enter execs]", state2_enter_exec)
 				{
 				Ici *lvp_ici;
-				Distribution *lvp_exp_dist;
+				Distribution *lvp_dist;
 				double lvd_next_ppdu_time;
 				PPDU_T *lvp_ppdu;
 				
@@ -205,10 +209,12 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 				lvp_ppdu->type = 0;
 				lvp_ppdu->start_time = op_sim_time();
 				lvp_ppdu->end_time = op_sim_time() + op_dist_uniform(5);
-				lvp_ppdu->transmitter_node_index = 2 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);	//CPE index start from 2
-				lvp_ppdu->receiver_node_index = 2 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);
-				printf("[PHY.send_PPDU_2Channel] transmitter:%d, receiver:%d, start_time:%lf, end_time:%lf\n", lvp_ppdu->transmitter_node_index, lvp_ppdu->receiver_node_index, lvp_ppdu->start_time, lvp_ppdu->end_time);
-				
+				lvp_ppdu->transmitter_node_index = 1 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);	//HE index start from 2
+				lvp_ppdu->receiver_node_index = 1 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);
+				lvp_dist = op_dist_load("normal", 3.16, 1);    //mean power 35dBm = 3.16w
+				lvp_ppdu->power_linear = op_dist_outcome(lvp_dist);
+				op_dist_unload(lvp_dist);
+				printf("[PHY.send_PPDU_2Channel] transmitter:%d, receiver:%d, power_linear:%lf, start_time:%lf, end_time:%lf\n", lvp_ppdu->transmitter_node_index, lvp_ppdu->receiver_node_index, lvp_ppdu->power_linear, lvp_ppdu->start_time, lvp_ppdu->end_time);
 				
 				op_ici_attr_set(lvp_ici, "PPDU_ptr", lvp_ppdu);
 				op_ici_install(lvp_ici);
@@ -216,8 +222,9 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 				op_ici_install(OPC_NIL);
 				
 				/* schedule next PPDU */
-				lvp_exp_dist = op_dist_load("exponential", 1, 0);
-				lvd_next_ppdu_time = op_dist_outcome(lvp_exp_dist);
+				lvp_dist = op_dist_load("exponential", 1, 0);
+				lvd_next_ppdu_time = op_dist_outcome(lvp_dist);
+				op_dist_unload(lvp_dist);
 				printf("[PHY.send_PPDU_2Channel] current time:%lf, next PPDU time:%lf\n", op_sim_time(), op_sim_time()+lvd_next_ppdu_time);
 				op_intrpt_schedule_self(op_sim_time()+lvd_next_ppdu_time, INTRPT_CHANNEL_PPDU_START);
 				}

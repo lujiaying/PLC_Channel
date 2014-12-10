@@ -3,7 +3,7 @@
 #ifndef _PLC_CHANNEL
 #define _PLC_CHANNEL
 
-extern Objid gvoid_channel, gvoid_noise_generater;
+extern Objid gvoid_channel, gvoid_noise_generater, gvoid_PHY;
 extern int gvi_HE_num, gvi_CPE_num, gvi_NOISE_num, gvi_X_num, gvi_total_num;
 
 typedef enum INTRPT_CHANNEL_T
