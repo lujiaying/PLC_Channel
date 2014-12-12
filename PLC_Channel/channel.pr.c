@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54880A3D 54880A3D 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548A63A0 548A63A0 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -70,15 +70,17 @@ typedef struct DISTANCE_PHASE_T
 
 static double PPDU_receive_power_calculate(int, PPDU_T *);
 static double period_noise_power_get(void);
+static double phase_coupling_coefficient_get(int, int);
+static double pulse_noise_get(int);
 //static void PHY_medium_refresh(void);
 static void PPDU_sinr_segment_refresh(void);
 static void PPDU_sinr_calculate(PPDU_T *);
-static DISTANCE_PHASE_T ** topology_init(FILE *fin);
-static void propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **propagation_attenuation_matrix, int attenu_num);
-static void impedance_correlation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **impedance_correlation_matrix, int impedance_correlation_num);
-static void phase_coupling_parameter_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **phase_coupling_parameter_matrix, int phase_coupling_num);
-static void impedance_vector_init(double *impedance_vector, int impedance_num, double mean, double std_deviation);
-static void impedance_vector_update(double *impedance_vector, int impedance_num, double mean, double std_deviatio);
+static DISTANCE_PHASE_T ** topology_init(FILE *);
+static void propagation_attenuation_generate(DISTANCE_PHASE_T const **, double **, int);
+static void impedance_correlation_generate(DISTANCE_PHASE_T const **, double **, int);
+static void phase_coupling_parameter_generate(DISTANCE_PHASE_T const **, double **, int);
+static void impedance_vector_init(double *, int, double, double);
+static void impedance_vector_update(double *, int, double, double);
 
 int gvi_HE_num = 0, gvi_CPE_num = 0, gvi_NOISE_num = 0, gvi_X_num = 0, gvi_total_num = 0;
 Objid gvoid_channel;
@@ -144,9 +146,9 @@ enum { _op_block_origin = __LINE__ + 2};
 #endif
 
 /************************************************************/
-/* Author: Li Yong	                                     	*/
+/* Author: Li Yong	                                     	 */
 /* Last Update: 2014.08.25                                  */
-/* Remarks:                                             	*/
+/* Remarks:                                            	  	 */
 /************************************************************/
 static double
 PPDU_receive_power_calculate(int lvi_receiver_node_index, PPDU_T *lvp_PPDU)
@@ -154,6 +156,7 @@ PPDU_receive_power_calculate(int lvi_receiver_node_index, PPDU_T *lvp_PPDU)
 	double lvd_pathloss_linear;
 	double lvd_matchmiss_linear;
 	double lvd_impedance_ratio;
+	double lvd_phase_coupling_coefficient;
 	
 	FIN(PPDU_receive_power_calculate());
 	
@@ -162,17 +165,19 @@ PPDU_receive_power_calculate(int lvi_receiver_node_index, PPDU_T *lvp_PPDU)
 	
 	lvd_impedance_ratio = svp_impedance_vector[lvi_receiver_node_index] / 75.0;
 	lvd_matchmiss_linear = 4 * lvd_impedance_ratio / pow(1+lvd_impedance_ratio, 2);
+	lvd_phase_coupling_coefficient = phase_coupling_coefficient_get(lvi_receiver_node_index, lvp_PPDU->transmitter_node_index);
 	
-	printf("[PPDU_receive_power_calculate] ppdu_index:%d, receiver_node:%d, power:%lf mw, pathloss:%lf, mis:%lf.\n", lvp_PPDU->PPDU_index, lvi_receiver_node_index, lvp_PPDU->power_linear, lvd_pathloss_linear, lvd_matchmiss_linear);
+	printf("[PPDU_receive_power_calculate] ppdu_index:%d, receiver_node:%d, power:%lf mw,\n", lvp_PPDU->PPDU_index, lvi_receiver_node_index, lvp_PPDU->power_linear);  
+	printf("pathloss:%lf, mis:%lf, phase_coupling:%lf\n", lvd_pathloss_linear, lvd_matchmiss_linear, lvd_phase_coupling_coefficient);
     
-	FRET(lvp_PPDU->power_linear*(1-lvd_pathloss_linear)*lvd_matchmiss_linear);
+	FRET(lvp_PPDU->power_linear*(1-lvd_pathloss_linear)*lvd_matchmiss_linear*lvd_phase_coupling_coefficient);
 }
 
 
 /************************************************************/
 /* Author: jiaying.lu                                       */
 /* Last Update: 2014.12.10                                  */
-/* Remarks:         				                        */
+/* Remarks:        														    */
 /************************************************************/
 static double
 period_noise_power_get()
@@ -183,9 +188,61 @@ period_noise_power_get()
 	FIN(period_noise_power_get);
 	
 	lvd_period_time = (int)floor(op_sim_time()*1000+0.5) % 10;
-	lvd_attenu_dB = 10 * log(exp(-(lvd_period_time/0.75)));
+	lvd_attenu_dB = 10 * log10(exp(-(lvd_period_time/0.75)));
 	
 	FRET(-35.0+lvd_attenu_dB);
+}
+
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2014.12.11                                  */
+/* Remarks:         				                      			  */
+/************************************************************/
+static double
+phase_coupling_coefficient_get(int receiver_node_index, int transmitter_node_index)
+{
+	Distribution *lvp_dist;
+	double lvd_phase_coupling_coefficient;
+
+	FIN(phase_coupling_coefficient_get);
+	lvp_dist = op_dist_load("normal", svpp_phase_coupling_parameter_matrix[transmitter_node_index][receiver_node_index], 1);
+	lvd_phase_coupling_coefficient = op_dist_outcome(lvp_dist);
+	op_dist_unload(lvp_dist);
+	
+	if (lvd_phase_coupling_coefficient < 0)
+	{
+		lvd_phase_coupling_coefficient = 0;
+	}
+	
+	FRET(lvd_phase_coupling_coefficient);
+}
+
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2014.12.11                                  */
+/* Remarks:         				                      	*/
+/************************************************************/
+static double
+pulse_noise_get(int receiver_node_index)
+{
+	int lvi_noise_index;
+	double pulse_noise_power_linear;
+	double lvd_pathloss_linear;
+	PPDU_T *lvp_noise_PPDU;
+
+	FIN(pulse_noise_get);
+	
+	pulse_noise_power_linear = 0;
+	for (lvi_noise_index=0; lvi_noise_index<gvi_NOISE_num; lvi_noise_index++)
+	{
+		lvp_noise_PPDU =(PPDU_T *)prg_list_access(svlist_noise_ppdu, lvi_noise_index);
+		lvd_pathloss_linear = svpp_propagation_attenuation_matrix[lvp_noise_PPDU->transmitter_node_index][receiver_node_index];
+		pulse_noise_power_linear += lvp_noise_PPDU->power_linear * lvd_pathloss_linear * phase_coupling_coefficient_get(receiver_node_index, lvp_noise_PPDU->transmitter_node_index);
+	}
+	
+	FRET(pulse_noise_power_linear);
 }
 
 
@@ -277,7 +334,6 @@ PPDU_sinr_segment_refresh()
 	FIN(PPDU_sinr_segment_refresh());
 	
 	lvd_period_noise_power_dB = period_noise_power_get();
-	printf("[PPDU_sinr_segment_refresh] period_noise_power:%lf dB\n", lvd_period_noise_power_dB);
 	lvd_background_noise_power_dB = -65.0;     // idle=-65dBm, busy=-85dBm
 	
 	lvi_PPDU_number = op_prg_list_size(svlist_channel);
@@ -317,10 +373,12 @@ PPDU_sinr_segment_refresh()
 				}
 			}
 			
-			lvd_sinr_linear = lvd_signal_power_linear / (lvd_interference_power_linear + pow(10, lvd_period_noise_power_dB/10.0) + pow(10, lvd_background_noise_power_dB/10.0));
+			//printf("[PPDU_sinr_segment_refresh] signal_power:%lf, interference_power:%lf, pulse_noise_power:%lf, period_noise_power:%lf, background_noise_power:%lf\n", lvd_signal_power_linear, lvd_interference_power_linear, pulse_noise_get(lvi_actual_receiver_node_index), pow(10, lvd_period_noise_power_dB/10.0), pow(10, lvd_background_noise_power_dB/10.0));
+			lvd_sinr_linear = lvd_signal_power_linear / (lvd_interference_power_linear + pulse_noise_get(lvi_actual_receiver_node_index) + pow(10, lvd_period_noise_power_dB/10.0) + pow(10, lvd_background_noise_power_dB/10.0));
 			lvp_segment_sinr = (SEGMENT_SINR_T *)op_prg_mem_alloc(sizeof(SEGMENT_SINR_T));
-			lvp_segment_sinr->segment_sinr_dB = 10*log(lvd_sinr_linear);
+			lvp_segment_sinr->segment_sinr_dB = 10.0 *log10(lvd_sinr_linear);
 			lvp_segment_sinr->segment_start_time = op_sim_time();
+			printf("!!!!!! [PPDU_sinr_segment_refresh] receiver_index:%d, lvd_sinr_linear:%lf, segmeng_sinr_dB:%lf\n", lvp_PPDU_1->actual_receiver_array[lvi_actual_receiver_index].actual_receiver_node_index, lvd_sinr_linear, lvp_segment_sinr->segment_sinr_dB);
 			op_prg_list_insert(lvp_PPDU_1->actual_receiver_array[lvi_actual_receiver_index].segment_sinr, lvp_segment_sinr, OPC_LISTPOS_TAIL);
 		}
 	}
@@ -608,7 +666,7 @@ propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix,
 /* Remarks:                                             	 */
 /************************************************************/
 static void
-impedance_correlation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **impedance_correlation_matrix, int impedance_correlation_num)
+impedance_correlation_generate(const DISTANCE_PHASE_T **distance_phase_matrix, double **impedance_correlation_matrix, int impedance_correlation_num)
 {
 	int a;
 	int lvi_index_i, lvi_index_j;
@@ -655,7 +713,7 @@ impedance_correlation_generate(DISTANCE_PHASE_T const **distance_phase_matrix, d
 /* Remarks:                                             	 */
 /************************************************************/
 static void
-phase_coupling_parameter_generate(DISTANCE_PHASE_T const **distance_phase_matrix, double **phase_coupling_parameter_matrix, int phase_coupling_num)
+phase_coupling_parameter_generate(const DISTANCE_PHASE_T **distance_phase_matrix, double **phase_coupling_parameter_matrix, int phase_coupling_num)
 {
 	double k;
 	int lvi_index_i, lvi_index_j;
@@ -749,7 +807,7 @@ impedance_vector_update(double *impedance_vector, int impedance_num, double mean
 /*          Free impedance_space_vector after calculate.    */
 /************************************************************/
 static void
-impedance_space_relate_generate(double const *impedance_vector, double const **impedance_correlation_matrix, double *impedance_space_vector, int impedance_num)
+impedance_space_relate_generate(double const *impedance_vector, const double **impedance_correlation_matrix, double *impedance_space_vector, int impedance_num)
 {
 	FIN(impedance_space_relate);
 	
@@ -766,7 +824,7 @@ impedance_space_relate_generate(double const *impedance_vector, double const **i
 /*          Free phase_coupling_coefficient after calculate.*/
 /************************************************************/
 static void
-phase_coupling_coefficient_generate(double const **phase_coupling_parameter_matrix, double **phase_coupling_coefficient_matrix, int phase_coupling_num, double std_deviation)
+phase_coupling_coefficient_generate(const double **phase_coupling_parameter_matrix, double **phase_coupling_coefficient_matrix, int phase_coupling_num, double std_deviation)
 {
 	FIN(phase_coupling_coefficient_generate);
 	
@@ -1107,7 +1165,6 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				{
 					prg_list_free(lvp_PPDU->actual_receiver_array[lvi_actual_receiver_index].segment_sinr);
 				}
-				op_prg_mem_free(lvp_PPDU->actual_receiver_array);
 				
 				
 				/* send PPDU back to PHY*/

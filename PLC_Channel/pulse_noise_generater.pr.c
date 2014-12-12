@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char pulse_noise_generater_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54847722 54847722 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char pulse_noise_generater_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A op_runsim 7 548A46D0 548A46D0 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                             ";
 #include <string.h>
 
 
@@ -136,6 +136,7 @@ pulse_noise_generater (OP_SIM_CONTEXT_ARG_OPT)
 				svp_ppdu->start_time = op_sim_time();
 				svp_ppdu->end_time = -1;
 				svp_ppdu->PPDU_index = svi_noise_index;
+				svp_ppdu->transmitter_node_index = 1 + gvi_HE_num + gvi_CPE_num + svi_noise_index;
 				
 				op_ici_attr_set(lvp_ici, "PPDU_ptr", svp_ppdu);
 				op_ici_install(lvp_ici);
