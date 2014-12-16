@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548A63A0 548A63A0 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548F8CA6 548F8CA6 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -887,7 +887,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				int lvi_index_i;
 				double lvd_mean, lvd_std_deviation;
 				
-				gvoid_channel = op_id_self();
+				/* init state varible*/
 				svi_PPDU_index = 0;
 				printf("enter CHANNEL.init...\n");
 				/** //show current dir
@@ -959,6 +959,10 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				
 				/* send channel inited intrpt */
 				op_intrpt_schedule_mcast_global(op_sim_time(), INTRPT_CHANNEL_INITED);
+				
+				
+				/* init global objid */
+				gvoid_channel = op_id_self();
 				}
 				FSM_PROFILE_SECTION_OUT (state0_enter_exec)
 
