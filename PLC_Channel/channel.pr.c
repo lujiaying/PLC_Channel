@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548F8CA6 548F8CA6 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54924140 54924140 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -957,9 +957,6 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				printf("init end. And current sim time: %ld\n", op_sim_time());
 				op_intrpt_schedule_self(op_sim_time()+10, INTRPT_CHANNEL_TIME_TO_UPDATE);
 				
-				/* send channel inited intrpt */
-				op_intrpt_schedule_mcast_global(op_sim_time(), INTRPT_CHANNEL_INITED);
-				
 				
 				/* init global objid */
 				gvoid_channel = op_id_self();
@@ -971,7 +968,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 
 
 			/** state (init) transition processing **/
-			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "init", "idle", "tr_0", "channel [init -> idle : default / ]")
+			FSM_TRANSIT_FORCE (5, state5_enter_exec, ;, "default", "", "init", "send_channel_init", "tr_16", "channel [init -> send_channel_init : default / ]")
 				/*---------------------------------------------------------*/
 
 
@@ -994,7 +991,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				{
 				char lvc_err_msg[25];
 				
-				printf("Leave channel.idle. ");
+				printf("Leave channel.idle ");
 				
 				if (TIME_TO_UPDATE)
 				{
@@ -1175,7 +1172,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				lvp_ici = op_ici_create("PPDU");
 				op_ici_attr_set(lvp_ici, "PPDU_ptr", lvp_PPDU);
 				op_ici_install(lvp_ici);
-				op_intrpt_schedule_remote(op_sim_time(), INTRPT_CHANNEL_PPDU_END, gvoid_PHY);
+				op_intrpt_schedule_remote(op_sim_time(), INTRPT_CHANNEL_PPDU_END, gvp_node_objid[lvp_PPDU->transmitter_node_index].PHY);
 				op_ici_install(OPC_NIL);
 				}
 				FSM_PROFILE_SECTION_OUT (state4_enter_exec)
@@ -1186,6 +1183,26 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 
 			/** state (send_PPDU) transition processing **/
 			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "send_PPDU", "idle", "tr_11", "channel [send_PPDU -> idle : default / ]")
+				/*---------------------------------------------------------*/
+
+
+
+			/** state (send_channel_init) enter executives **/
+			FSM_STATE_ENTER_FORCED (5, "send_channel_init", state5_enter_exec, "channel [send_channel_init enter execs]")
+				FSM_PROFILE_SECTION_IN ("channel [send_channel_init enter execs]", state5_enter_exec)
+				{
+				/* send channel inited intrpt */
+				op_intrpt_schedule_mcast_global(op_sim_time(), INTRPT_CHANNEL_INITED);
+				op_sim_message("Success", "channel send MCAST intrpt: INTRPT_CHANNEL_INITED");
+				}
+				FSM_PROFILE_SECTION_OUT (state5_enter_exec)
+
+			/** state (send_channel_init) exit executives **/
+			FSM_STATE_EXIT_FORCED (5, "send_channel_init", "channel [send_channel_init exit execs]")
+
+
+			/** state (send_channel_init) transition processing **/
+			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "send_channel_init", "idle", "tr_17", "channel [send_channel_init -> idle : default / ]")
 				/*---------------------------------------------------------*/
 
 

@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char HE_PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548F9224 548F9224 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char HE_PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5492437C 5492437C 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -43,8 +43,11 @@ typedef struct
 	{
 	/* Internal state tracking for FSM */
 	FSM_SYS_STATE
+	/* State Variables */
+	int	                    		svi_HE_index                                    ;
 	} HE_PHY_state;
 
+#define svi_HE_index            		op_sv_ptr->svi_HE_index
 
 /* These macro definitions will define a local variable called	*/
 /* "op_sv_ptr" in each function containing a FIN statement.	*/
@@ -116,7 +119,19 @@ HE_PHY (OP_SIM_CONTEXT_ARG_OPT)
 				Distribution *lvp_exp_dist;
 				double lvd_ppdu_time;
 				
-				gvp_CPE_id[] = ;
+				/* find self node index */
+				for (svi_HE_index=0; svi_HE_index<gvi_HE_num; svi_HE_index++)
+				{
+					if (gvp_node_objid[svi_HE_index].PHY == op_id_self())
+					{
+						break;
+					}
+				}
+				printf("gvp_node_objid[svi_HE_index].PHY:%d, op_id_self:%d\n", gvp_node_objid[0].PHY, op_id_self());
+				if (svi_HE_index == gvi_HE_num)
+				{
+					op_sim_end("HE index exceed gvi_HE_num",  "Error source module: HE_PHY", "Error source state: init.enter", "");
+				}
 				
 				/* schedule first PPDU */
 				lvp_exp_dist = op_dist_load("exponential", 1, 0);
@@ -210,8 +225,8 @@ HE_PHY (OP_SIM_CONTEXT_ARG_OPT)
 				lvp_ppdu->type = 0;
 				lvp_ppdu->start_time = op_sim_time();
 				lvp_ppdu->end_time = op_sim_time() + op_dist_uniform(5);
-				lvp_ppdu->transmitter_node_index = 1 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);	//HE index start from 2
-				lvp_ppdu->receiver_node_index = 1 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);
+				lvp_ppdu->transmitter_node_index = svi_HE_index;
+				lvp_ppdu->receiver_node_index = gvi_HE_num + 1 + (int)(op_dist_uniform(gvi_CPE_num));
 				lvp_dist = op_dist_load("normal", 3.16, 1);    //mean power 35dBm = 3.16w
 				lvp_ppdu->power_linear = op_dist_outcome(lvp_dist);
 				op_dist_unload(lvp_dist);
@@ -286,6 +301,23 @@ HE_PHY (OP_SIM_CONTEXT_ARG_OPT)
 
 			/** state (wait_sys_init) exit executives **/
 			FSM_STATE_EXIT_UNFORCED (4, "wait_sys_init", "HE_PHY [wait_sys_init exit execs]")
+				FSM_PROFILE_SECTION_IN ("HE_PHY [wait_sys_init exit execs]", state4_exit_exec)
+				{
+				char lvc_err_msg[25];
+				
+				printf("Leave HE_PHY.wait_sys_init ");
+				
+				if (SYS_INIT)
+				{
+					printf("receive MCAST INTRPT: SYS_INIT.\n");
+				}
+				else
+				{
+					sprintf(lvc_err_msg, "Error intrpt_code=%d", op_intrpt_code());
+					op_sim_end("Error: Unexpected INTRPT is received at \"HE_PHY.wait_sys_init.Exit\" state!", "Error source module: HE_PHY", lvc_err_msg, "");
+				}
+				}
+				FSM_PROFILE_SECTION_OUT (state4_exit_exec)
 
 
 			/** state (wait_sys_init) transition processing **/
@@ -338,6 +370,11 @@ _op_HE_PHY_terminate (OP_SIM_CONTEXT_ARG_OPT)
 	}
 
 
+/* Undefine shortcuts to state variables to avoid */
+/* syntax error in direct access to fields of */
+/* local variable prs_ptr in _op_HE_PHY_svar function. */
+#undef svi_HE_index
+
 #undef FIN_PREAMBLE_DEC
 #undef FIN_PREAMBLE_CODE
 
@@ -382,9 +419,22 @@ _op_HE_PHY_alloc (VosT_Obtype obtype, int init_block)
 void
 _op_HE_PHY_svar (void * gen_ptr, const char * var_name, void ** var_p_ptr)
 	{
+	HE_PHY_state		*prs_ptr;
 
 	FIN_MT (_op_HE_PHY_svar (gen_ptr, var_name, var_p_ptr))
 
+	if (var_name == OPC_NIL)
+		{
+		*var_p_ptr = (void *)OPC_NIL;
+		FOUT
+		}
+	prs_ptr = (HE_PHY_state *)gen_ptr;
+
+	if (strcmp ("svi_HE_index" , var_name) == 0)
+		{
+		*var_p_ptr = (void *) (&prs_ptr->svi_HE_index);
+		FOUT
+		}
 	*var_p_ptr = (void *)OPC_NIL;
 
 	FOUT

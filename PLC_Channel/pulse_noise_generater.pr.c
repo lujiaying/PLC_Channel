@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char pulse_noise_generater_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A op_runsim 7 548A46D0 548A46D0 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                             ";
+const char pulse_noise_generater_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54923E47 54923E47 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -180,7 +180,8 @@ pulse_noise_generater (OP_SIM_CONTEXT_ARG_OPT)
 				
 				if (POWER_UPDATE)
 				{
-					printf("receive INTRPT: POWER_UPDATE. Enter next state.\n");
+					//printf("receive INTRPT: POWER_UPDATE. Enter next state.\n");
+					;
 				}
 				else if (NEXT_PULSE_START)
 				{
@@ -222,7 +223,7 @@ pulse_noise_generater (OP_SIM_CONTEXT_ARG_OPT)
 				/* update noise power */
 				ne_exponential_para = 0.00075;
 				svp_ppdu->power_linear = exp((svd_pulse_start_time-op_sim_time())/ne_exponential_para) * svd_pulse_start_power;
-				printf("[noise %d] current time:%lf, update pulse power: %lf\n", svi_noise_index, op_sim_time(), svp_ppdu->power_linear);
+				//printf("[noise %d] current time:%lf, update pulse power: %lf\n", svi_noise_index, op_sim_time(), svp_ppdu->power_linear);
 				
 				/* schedule next noise power update */
 				// after 20ms, power drop to 0.
@@ -232,7 +233,8 @@ pulse_noise_generater (OP_SIM_CONTEXT_ARG_OPT)
 				}
 				else
 				{
-					printf("[noise %d] current time:%lf, and pulse start time:%lf. Already passed 20ms.\n", svi_noise_index, op_sim_time(), svd_pulse_start_time);
+					//printf("[noise %d] current time:%lf, and pulse start time:%lf. Already passed 20ms.\n", svi_noise_index, op_sim_time(), svd_pulse_start_time);
+					;
 				}
 				}
 				FSM_PROFILE_SECTION_OUT (state2_enter_exec)

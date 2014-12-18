@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char pulse_noise_manager_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5481662C 5481662C 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char pulse_noise_manager_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54923F27 54923F27 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 

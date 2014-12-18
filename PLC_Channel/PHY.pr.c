@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548806C8 548806C8 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54923FA4 54923FA4 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -16,12 +16,13 @@ const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548806C8 548806C8 
 
 /* Header Block */
 
+#include "PLC_def.h"
 #include "PLC_Channel.h"
 
+
+#define SYS_INIT			((op_intrpt_type() == OPC_INTRPT_MCAST) && (op_intrpt_code() == INTRPT_SYS_INIT))
 #define PPDU_TIME_START		((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
 #define PPDU_END			((op_intrpt_type() == OPC_INTRPT_REMOTE) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_END))			
-
-Objid gvoid_PHY;
 
 /* End of Header Block */
 
@@ -42,8 +43,11 @@ typedef struct
 	{
 	/* Internal state tracking for FSM */
 	FSM_SYS_STATE
+	/* State Variables */
+	int	                    		svi_CPE_index                                   ;
 	} PHY_state;
 
+#define svi_CPE_index           		op_sv_ptr->svi_CPE_index
 
 /* These macro definitions will define a local variable called	*/
 /* "op_sv_ptr" in each function containing a FIN statement.	*/
@@ -108,29 +112,46 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 		FSM_BLOCK_SWITCH
 			{
 			/*---------------------------------------------------------*/
-			/** state (init) enter executives **/
-			FSM_STATE_ENTER_FORCED_NOLABEL (0, "init", "PHY [init enter execs]")
-				FSM_PROFILE_SECTION_IN ("PHY [init enter execs]", state0_enter_exec)
+			/** state (wait_sys_init) enter executives **/
+			FSM_STATE_ENTER_UNFORCED (0, "wait_sys_init", state0_enter_exec, "PHY [wait_sys_init enter execs]")
+
+			/** blocking after enter executives of unforced state. **/
+			FSM_EXIT (1,"PHY")
+
+
+			/** state (wait_sys_init) exit executives **/
+			FSM_STATE_EXIT_UNFORCED (0, "wait_sys_init", "PHY [wait_sys_init exit execs]")
+				FSM_PROFILE_SECTION_IN ("PHY [wait_sys_init exit execs]", state0_exit_exec)
 				{
-				Distribution *lvp_exp_dist;
-				double lvd_ppdu_time;
+				char lvc_err_msg[25];
 				
-				gvoid_PHY = op_id_self();
+				printf("Leave PHY.wait_sys_init ");
 				
-				/* schedule first PPDU */
-				lvp_exp_dist = op_dist_load("exponential", 1, 0);
-				lvd_ppdu_time = op_dist_outcome(lvp_exp_dist);
-				printf("[PHY.init] current time:%lf, first PPDU time:%lf\n", op_sim_time(), op_sim_time()+lvd_ppdu_time);
-				op_intrpt_schedule_self(op_sim_time()+lvd_ppdu_time, INTRPT_CHANNEL_PPDU_START);
+				if (SYS_INIT)
+				{
+					printf("receive MCAST INTRPT: SYS_INIT.\n");
 				}
-				FSM_PROFILE_SECTION_OUT (state0_enter_exec)
+				else
+				{
+					sprintf(lvc_err_msg, "Error intrpt_code=%d", op_intrpt_code());
+					op_sim_end("Error: Unexpected INTRPT is received at \"PHY.wait_sys_init.Exit\" state!", "Error source module: PHY", lvc_err_msg, "");
+				}
+				}
+				FSM_PROFILE_SECTION_OUT (state0_exit_exec)
 
-			/** state (init) exit executives **/
-			FSM_STATE_EXIT_FORCED (0, "init", "PHY [init exit execs]")
 
+			/** state (wait_sys_init) transition processing **/
+			FSM_PROFILE_SECTION_IN ("PHY [wait_sys_init trans conditions]", state0_trans_conds)
+			FSM_INIT_COND (SYS_INIT)
+			FSM_DFLT_COND
+			FSM_TEST_LOGIC ("wait_sys_init")
+			FSM_PROFILE_SECTION_OUT (state0_trans_conds)
 
-			/** state (init) transition processing **/
-			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "init", "idle", "tr_0", "PHY [init -> idle : default / ]")
+			FSM_TRANSIT_SWITCH
+				{
+				FSM_CASE_TRANSIT (0, 4, state4_enter_exec, ;, "SYS_INIT", "", "wait_sys_init", "init", "tr_9", "PHY [wait_sys_init -> init : SYS_INIT / ]")
+				FSM_CASE_TRANSIT (1, 0, state0_enter_exec, ;, "default", "", "wait_sys_init", "wait_sys_init", "tr_6", "PHY [wait_sys_init -> wait_sys_init : default / ]")
+				}
 				/*---------------------------------------------------------*/
 
 
@@ -209,8 +230,8 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 				lvp_ppdu->type = 0;
 				lvp_ppdu->start_time = op_sim_time();
 				lvp_ppdu->end_time = op_sim_time() + op_dist_uniform(5);
-				lvp_ppdu->transmitter_node_index = 1 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);	//HE index start from 2
-				lvp_ppdu->receiver_node_index = 1 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);
+				lvp_ppdu->transmitter_node_index = svi_CPE_index;
+				lvp_ppdu->receiver_node_index = 1;    // for test, only one HE
 				lvp_dist = op_dist_load("normal", 3.16, 1);    //mean power 35dBm = 3.16w
 				lvp_ppdu->power_linear = op_dist_outcome(lvp_dist);
 				op_dist_unload(lvp_dist);
@@ -276,6 +297,44 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 
 
 
+			/** state (init) enter executives **/
+			FSM_STATE_ENTER_FORCED (4, "init", state4_enter_exec, "PHY [init enter execs]")
+				FSM_PROFILE_SECTION_IN ("PHY [init enter execs]", state4_enter_exec)
+				{
+				Distribution *lvp_exp_dist;
+				double lvd_ppdu_time;
+				
+				/* find self nodex index */
+				for (svi_CPE_index=gvi_HE_num; svi_CPE_index<gvi_HE_num+gvi_CPE_num; svi_CPE_index++)
+				{
+					if (gvp_node_objid[svi_CPE_index].PHY == op_id_self())
+					{
+						break;
+					}
+				}
+				if (svi_CPE_index == gvi_HE_num)
+				{
+					op_sim_end("CPE index exceed gvi_HE_num",  "Error source module: CPE_PHY", "Error source state: init.enter", "");
+				}
+				
+				/* schedule first PPDU */
+				lvp_exp_dist = op_dist_load("exponential", 1, 0);
+				lvd_ppdu_time = op_dist_outcome(lvp_exp_dist);
+				printf("[PHY.init] current time:%lf, first PPDU time:%lf\n", op_sim_time(), op_sim_time()+lvd_ppdu_time);
+				op_intrpt_schedule_self(op_sim_time()+lvd_ppdu_time, INTRPT_CHANNEL_PPDU_START);
+				}
+				FSM_PROFILE_SECTION_OUT (state4_enter_exec)
+
+			/** state (init) exit executives **/
+			FSM_STATE_EXIT_FORCED (4, "init", "PHY [init exit execs]")
+
+
+			/** state (init) transition processing **/
+			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "init", "idle", "tr_8", "PHY [init -> idle : default / ]")
+				/*---------------------------------------------------------*/
+
+
+
 			}
 
 
@@ -310,6 +369,11 @@ _op_PHY_terminate (OP_SIM_CONTEXT_ARG_OPT)
 	}
 
 
+/* Undefine shortcuts to state variables to avoid */
+/* syntax error in direct access to fields of */
+/* local variable prs_ptr in _op_PHY_svar function. */
+#undef svi_CPE_index
+
 #undef FIN_PREAMBLE_DEC
 #undef FIN_PREAMBLE_CODE
 
@@ -343,7 +407,7 @@ _op_PHY_alloc (VosT_Obtype obtype, int init_block)
 		{
 		ptr->_op_current_block = init_block;
 #if defined (OPD_ALLOW_ODB)
-		ptr->_op_current_state = "PHY [init enter execs]";
+		ptr->_op_current_state = "PHY [wait_sys_init enter execs]";
 #endif
 		}
 	FRET ((VosT_Address)ptr)
@@ -354,9 +418,22 @@ _op_PHY_alloc (VosT_Obtype obtype, int init_block)
 void
 _op_PHY_svar (void * gen_ptr, const char * var_name, void ** var_p_ptr)
 	{
+	PHY_state		*prs_ptr;
 
 	FIN_MT (_op_PHY_svar (gen_ptr, var_name, var_p_ptr))
 
+	if (var_name == OPC_NIL)
+		{
+		*var_p_ptr = (void *)OPC_NIL;
+		FOUT
+		}
+	prs_ptr = (PHY_state *)gen_ptr;
+
+	if (strcmp ("svi_CPE_index" , var_name) == 0)
+		{
+		*var_p_ptr = (void *) (&prs_ptr->svi_CPE_index);
+		FOUT
+		}
 	*var_p_ptr = (void *)OPC_NIL;
 
 	FOUT

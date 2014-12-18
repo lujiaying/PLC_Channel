@@ -15,7 +15,6 @@ mem_opt.grow_pool_planks                     default     TRUE
 mem_optimize                                 default     TRUE
 mem_shred                                    default     FALSE
 mod_dirs                                     env. file   D:\Documents\GitHub\PLC_Channel\PLC_Channel,
-                                                         C:\Users\lu\OneDrive\code\OPNET\linktech_v.0.5.0\,
                                                          C:\Users\lu\OneDrive\code\OPNET\PLC\PLC_v.0.1.5\,
                                                          "D:\\Program Files\\OPNET\\14.5.A\\sys\\lib",
                                                          "D:\\Program Files\\OPNET\\14.5.A\\sys\\icons",

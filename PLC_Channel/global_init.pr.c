@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char global_init_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548F91CA 548F91CA 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char global_init_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54924435 54924435 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -21,7 +21,7 @@ const char global_init_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548F91CA 5
 
 #define CHANNEL_INITED		((op_intrpt_type() == OPC_INTRPT_MCAST) && (op_intrpt_code() == INTRPT_CHANNEL_INITED))
 
-Objid *gvp_CPE_id, *gvp_HE_id;
+NODE_OID_T *gvp_node_objid;
 
 /* End of Header Block */
 
@@ -108,122 +108,121 @@ global_init (OP_SIM_CONTEXT_ARG_OPT)
 		FSM_BLOCK_SWITCH
 			{
 			/*---------------------------------------------------------*/
-			/** state (channel_init) enter executives **/
-			FSM_STATE_ENTER_UNFORCED (0, "channel_init", state0_enter_exec, "global_init [channel_init enter execs]")
+			/** state (wait_channel_init) enter executives **/
+			FSM_STATE_ENTER_UNFORCED (0, "wait_channel_init", state0_enter_exec, "global_init [wait_channel_init enter execs]")
+				FSM_PROFILE_SECTION_IN ("global_init [wait_channel_init enter execs]", state0_enter_exec)
+				{
+				printf("enter global.wait_channel_init.enter \n");
+				}
+				FSM_PROFILE_SECTION_OUT (state0_enter_exec)
 
 			/** blocking after enter executives of unforced state. **/
 			FSM_EXIT (1,"global_init")
 
 
-			/** state (channel_init) exit executives **/
-			FSM_STATE_EXIT_UNFORCED (0, "channel_init", "global_init [channel_init exit execs]")
+			/** state (wait_channel_init) exit executives **/
+			FSM_STATE_EXIT_UNFORCED (0, "wait_channel_init", "global_init [wait_channel_init exit execs]")
+				FSM_PROFILE_SECTION_IN ("global_init [wait_channel_init exit execs]", state0_exit_exec)
+				{
+				char lvc_err_msg[25];
+				
+				printf("Leave global_init.wait_channel_init.exit ");
+				
+				if (CHANNEL_INITED)
+				{
+					printf("receive MCAST INTRPT: CHANNEL_INITED.\n");
+				}
+				else
+				{
+					sprintf(lvc_err_msg, "Error intrpt_code=%d", op_intrpt_code());
+					op_sim_end("Error: Unexpected INTRPT is received at \"global.wait_channel_init.Exit\" state!", "Error source module: CHANNEL", lvc_err_msg, "");
+				}
+				}
+				FSM_PROFILE_SECTION_OUT (state0_exit_exec)
 
 
-			/** state (channel_init) transition processing **/
-			FSM_PROFILE_SECTION_IN ("global_init [channel_init trans conditions]", state0_trans_conds)
+			/** state (wait_channel_init) transition processing **/
+			FSM_PROFILE_SECTION_IN ("global_init [wait_channel_init trans conditions]", state0_trans_conds)
 			FSM_INIT_COND (CHANNEL_INITED)
 			FSM_DFLT_COND
-			FSM_TEST_LOGIC ("channel_init")
+			FSM_TEST_LOGIC ("wait_channel_init")
 			FSM_PROFILE_SECTION_OUT (state0_trans_conds)
 
 			FSM_TRANSIT_SWITCH
 				{
-				FSM_CASE_TRANSIT (0, 1, state1_enter_exec, ;, "CHANNEL_INITED", "", "channel_init", "HE_init", "tr_0", "global_init [channel_init -> HE_init : CHANNEL_INITED / ]")
-				FSM_CASE_TRANSIT (1, 0, state0_enter_exec, ;, "default", "", "channel_init", "channel_init", "tr_7", "global_init [channel_init -> channel_init : default / ]")
+				FSM_CASE_TRANSIT (0, 1, state1_enter_exec, ;, "CHANNEL_INITED", "", "wait_channel_init", "NODE_init", "tr_0", "global_init [wait_channel_init -> NODE_init : CHANNEL_INITED / ]")
+				FSM_CASE_TRANSIT (1, 0, state0_enter_exec, ;, "default", "", "wait_channel_init", "wait_channel_init", "tr_7", "global_init [wait_channel_init -> wait_channel_init : default / ]")
 				}
 				/*---------------------------------------------------------*/
 
 
 
-			/** state (HE_init) enter executives **/
-			FSM_STATE_ENTER_FORCED (1, "HE_init", state1_enter_exec, "global_init [HE_init enter execs]")
-				FSM_PROFILE_SECTION_IN ("global_init [HE_init enter execs]", state1_enter_exec)
+			/** state (NODE_init) enter executives **/
+			FSM_STATE_ENTER_FORCED (1, "NODE_init", state1_enter_exec, "global_init [NODE_init enter execs]")
+				FSM_PROFILE_SECTION_IN ("global_init [NODE_init enter execs]", state1_enter_exec)
 				{
-				int lvi_HE_index;
-				char lvch_HE_name[12];
+				int lvi_NODE_index;
+				char lvch_NODE_name[12];
 				char lvch_string[100];
-				Objid lvoid_HE_id, lvoid_subnet;
+				Objid lvoid_NODE_id, lvoid_subnet;
 				
-				gvp_HE_id = (Objid *)op_prg_mem_alloc(gvi_HE_num * sizeof(Objid));
+				gvp_node_objid = (NODE_OID_T *)op_prg_mem_alloc(gvi_HE_num * sizeof(NODE_OID_T));
 				lvoid_subnet = op_topo_parent(op_topo_parent(op_id_self()));
 				
 				/* HE_init */
-				for (lvi_HE_index = 0; lvi_HE_index < gvi_HE_num; lvi_HE_index++)
+				for (lvi_NODE_index = 0; lvi_NODE_index < gvi_HE_num; lvi_NODE_index++)
 				{
 					/* Objid node_id */
-					memset(lvch_HE_name, 0, 12);
-					sprintf(lvch_HE_name, "HE_%d", lvi_HE_index);
-					lvoid_HE_id = op_id_from_name(lvoid_subnet, OPC_OBJTYPE_NDFIX, lvch_HE_name);
-					if (lvoid_HE_id == OPC_OBJID_INVALID)
+					memset(lvch_NODE_name, 0, 12);
+					sprintf(lvch_NODE_name, "HE_%d.PHY", lvi_NODE_index);
+					lvoid_NODE_id = op_id_from_name(lvoid_subnet, OPC_OBJTYPE_NDFIX, lvch_NODE_name);
+					printf("%d: lvoid_NODE_id=%d\n", lvi_NODE_index, lvoid_NODE_id);
+					if (lvoid_NODE_id == OPC_OBJID_INVALID)
 					{
 						memset(lvch_string, 0, 100);
-						sprintf(lvch_string, "Error: HE_%d can't be found!", lvi_HE_index);
+						sprintf(lvch_string, "Error: HE_%d can't be found!", lvi_NODE_index);
 						op_sim_end(lvch_string, "Error source module: global_init", "Error source state: HE_init.enter", "");
 					}
 					else
 					{
-						gvp_HE_id[lvi_HE_index] = lvoid_HE_id;
+						gvp_node_objid[lvi_NODE_index].PHY = lvoid_NODE_id;
+					}
+				}	
+				
+				/* CPE_init */
+				for (lvi_NODE_index = gvi_HE_num; lvi_NODE_index < gvi_HE_num+gvi_CPE_num; lvi_NODE_index++)
+				{
+					/* Objid node_id */
+					memset(lvch_NODE_name, 0, 12);
+					sprintf(lvch_NODE_name, "CPE_%d", lvi_NODE_index-gvi_HE_num);
+					lvoid_NODE_id = op_id_from_name(lvoid_subnet, OPC_OBJTYPE_NDFIX, lvch_NODE_name);
+					if (lvoid_NODE_id == OPC_OBJID_INVALID)
+					{
+						memset(lvch_string, 0, 100);
+						sprintf(lvch_string, "Error: HE_%d can't be found!", lvi_NODE_index);
+						op_sim_end(lvch_string, "Error source module: global_init", "Error source state: HE_init.enter", "");
+					}
+					else
+					{
+						gvp_node_objid[lvi_NODE_index].PHY = lvoid_NODE_id;
 					}
 				}	
 				}
 				FSM_PROFILE_SECTION_OUT (state1_enter_exec)
 
-			/** state (HE_init) exit executives **/
-			FSM_STATE_EXIT_FORCED (1, "HE_init", "global_init [HE_init exit execs]")
+			/** state (NODE_init) exit executives **/
+			FSM_STATE_EXIT_FORCED (1, "NODE_init", "global_init [NODE_init exit execs]")
 
 
-			/** state (HE_init) transition processing **/
-			FSM_TRANSIT_FORCE (2, state2_enter_exec, ;, "default", "", "HE_init", "CPE_init", "tr_1", "global_init [HE_init -> CPE_init : default / ]")
-				/*---------------------------------------------------------*/
-
-
-
-			/** state (CPE_init) enter executives **/
-			FSM_STATE_ENTER_FORCED (2, "CPE_init", state2_enter_exec, "global_init [CPE_init enter execs]")
-				FSM_PROFILE_SECTION_IN ("global_init [CPE_init enter execs]", state2_enter_exec)
-				{
-				int lvi_CPE_index;
-				char lvch_CPE_name[12];
-				char lvch_string[100];
-				Objid lvoid_CPE_id, lvoid_subnet;
-					
-				gvp_CPE_id = (Objid *)op_prg_mem_alloc(gvi_CPE_num * sizeof(Objid));
-				lvoid_subnet = op_topo_parent(op_topo_parent(op_id_self()));
-				
-				/* CPE init */
-				for (lvi_CPE_index = 0; lvi_CPE_index < gvi_CPE_num; lvi_CPE_index++)
-				{
-					/* Objid node_id */
-					memset(lvch_CPE_name, 0, 12);
-					sprintf(lvch_CPE_name, "CPE_%d", lvi_CPE_index);
-					lvoid_CPE_id = op_id_from_name(lvoid_subnet, OPC_OBJTYPE_NDMOB, lvch_CPE_name);
-					if (lvoid_CPE_id == OPC_OBJID_INVALID)
-					{
-						memset(lvch_string, 0, 100);
-						sprintf(lvch_string, "Error: CPE %d can't be found!", lvi_CPE_index);
-						op_sim_end(lvch_string, "Error source module: PLC_GLOBAL_INIT", "Error source function: CPE_init()", "");
-					}
-					else
-					{
-						gvp_CPE_id[lvi_CPE_index] = lvoid_CPE_id;
-					}		
-				}	
-				}
-				FSM_PROFILE_SECTION_OUT (state2_enter_exec)
-
-			/** state (CPE_init) exit executives **/
-			FSM_STATE_EXIT_FORCED (2, "CPE_init", "global_init [CPE_init exit execs]")
-
-
-			/** state (CPE_init) transition processing **/
-			FSM_TRANSIT_FORCE (3, state3_enter_exec, ;, "default", "", "CPE_init", "send_sys_init", "tr_2", "global_init [CPE_init -> send_sys_init : default / ]")
+			/** state (NODE_init) transition processing **/
+			FSM_TRANSIT_FORCE (2, state2_enter_exec, ;, "default", "", "NODE_init", "send_sys_init", "tr_9", "global_init [NODE_init -> send_sys_init : default / ]")
 				/*---------------------------------------------------------*/
 
 
 
 			/** state (send_sys_init) enter executives **/
-			FSM_STATE_ENTER_FORCED (3, "send_sys_init", state3_enter_exec, "global_init [send_sys_init enter execs]")
-				FSM_PROFILE_SECTION_IN ("global_init [send_sys_init enter execs]", state3_enter_exec)
+			FSM_STATE_ENTER_FORCED (2, "send_sys_init", state2_enter_exec, "global_init [send_sys_init enter execs]")
+				FSM_PROFILE_SECTION_IN ("global_init [send_sys_init enter execs]", state2_enter_exec)
 				{
 				char lvch_string[100];
 				
@@ -232,31 +231,31 @@ global_init (OP_SIM_CONTEXT_ARG_OPT)
 				op_sim_message("Simulation initialization completes.", lvch_string);
 				op_intrpt_schedule_mcast_global(op_sim_time(), INTRPT_SYS_INIT);
 				}
-				FSM_PROFILE_SECTION_OUT (state3_enter_exec)
+				FSM_PROFILE_SECTION_OUT (state2_enter_exec)
 
 			/** state (send_sys_init) exit executives **/
-			FSM_STATE_EXIT_FORCED (3, "send_sys_init", "global_init [send_sys_init exit execs]")
+			FSM_STATE_EXIT_FORCED (2, "send_sys_init", "global_init [send_sys_init exit execs]")
 
 
 			/** state (send_sys_init) transition processing **/
-			FSM_TRANSIT_FORCE (4, state4_enter_exec, ;, "default", "", "send_sys_init", "idle", "tr_6", "global_init [send_sys_init -> idle : default / ]")
+			FSM_TRANSIT_FORCE (3, state3_enter_exec, ;, "default", "", "send_sys_init", "idle", "tr_6", "global_init [send_sys_init -> idle : default / ]")
 				/*---------------------------------------------------------*/
 
 
 
 			/** state (idle) enter executives **/
-			FSM_STATE_ENTER_UNFORCED (4, "idle", state4_enter_exec, "global_init [idle enter execs]")
+			FSM_STATE_ENTER_UNFORCED (3, "idle", state3_enter_exec, "global_init [idle enter execs]")
 
 			/** blocking after enter executives of unforced state. **/
-			FSM_EXIT (9,"global_init")
+			FSM_EXIT (7,"global_init")
 
 
 			/** state (idle) exit executives **/
-			FSM_STATE_EXIT_UNFORCED (4, "idle", "global_init [idle exit execs]")
+			FSM_STATE_EXIT_UNFORCED (3, "idle", "global_init [idle exit execs]")
 
 
 			/** state (idle) transition processing **/
-			FSM_TRANSIT_FORCE (4, state4_enter_exec, ;, "default", "", "idle", "idle", "tr_5", "global_init [idle -> idle : default / ]")
+			FSM_TRANSIT_FORCE (3, state3_enter_exec, ;, "default", "", "idle", "idle", "tr_5", "global_init [idle -> idle : default / ]")
 				/*---------------------------------------------------------*/
 
 
@@ -328,7 +327,7 @@ _op_global_init_alloc (VosT_Obtype obtype, int init_block)
 		{
 		ptr->_op_current_block = init_block;
 #if defined (OPD_ALLOW_ODB)
-		ptr->_op_current_state = "global_init [channel_init enter execs]";
+		ptr->_op_current_state = "global_init [wait_channel_init enter execs]";
 #endif
 		}
 	FRET ((VosT_Address)ptr)
