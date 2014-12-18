@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char HE_PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5492437C 5492437C 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char HE_PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5492A869 5492A869 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -127,7 +127,7 @@ HE_PHY (OP_SIM_CONTEXT_ARG_OPT)
 						break;
 					}
 				}
-				printf("gvp_node_objid[svi_HE_index].PHY:%d, op_id_self:%d\n", gvp_node_objid[0].PHY, op_id_self());
+				//printf("svi_HE_index:%d, gvp_node_objid[svi_HE_index].PHY:%d, op_id_self:%d\n", svi_HE_index, gvp_node_objid[0].PHY, op_id_self());
 				if (svi_HE_index == gvi_HE_num)
 				{
 					op_sim_end("HE index exceed gvi_HE_num",  "Error source module: HE_PHY", "Error source state: init.enter", "");

@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char global_init_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54924435 54924435 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char global_init_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5492A7EC 5492A7EC 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -164,7 +164,7 @@ global_init (OP_SIM_CONTEXT_ARG_OPT)
 				int lvi_NODE_index;
 				char lvch_NODE_name[12];
 				char lvch_string[100];
-				Objid lvoid_NODE_id, lvoid_subnet;
+				Objid lvoid_NODE_id, lvoid_subnet, lvoid_processor_id;
 				
 				gvp_node_objid = (NODE_OID_T *)op_prg_mem_alloc(gvi_HE_num * sizeof(NODE_OID_T));
 				lvoid_subnet = op_topo_parent(op_topo_parent(op_id_self()));
@@ -172,27 +172,42 @@ global_init (OP_SIM_CONTEXT_ARG_OPT)
 				/* HE_init */
 				for (lvi_NODE_index = 0; lvi_NODE_index < gvi_HE_num; lvi_NODE_index++)
 				{
-					/* Objid node_id */
+					/* find node id */
 					memset(lvch_NODE_name, 0, 12);
-					sprintf(lvch_NODE_name, "HE_%d.PHY", lvi_NODE_index);
+					sprintf(lvch_NODE_name, "HE_%d", lvi_NODE_index);
 					lvoid_NODE_id = op_id_from_name(lvoid_subnet, OPC_OBJTYPE_NDFIX, lvch_NODE_name);
-					printf("%d: lvoid_NODE_id=%d\n", lvi_NODE_index, lvoid_NODE_id);
 					if (lvoid_NODE_id == OPC_OBJID_INVALID)
 					{
 						memset(lvch_string, 0, 100);
 						sprintf(lvch_string, "Error: HE_%d can't be found!", lvi_NODE_index);
-						op_sim_end(lvch_string, "Error source module: global_init", "Error source state: HE_init.enter", "");
+						op_sim_end(lvch_string, "Error source module: global_init", "Error source state: NODE_init.enter", "");
 					}
 					else
 					{
-						gvp_node_objid[lvi_NODE_index].PHY = lvoid_NODE_id;
+						gvp_node_objid[lvi_NODE_index].NODE = lvoid_NODE_id;
 					}
+					
+					/* find node.PHY id*/
+					memset(lvch_NODE_name, 0, 12);
+					sprintf(lvch_NODE_name, "PHY", lvi_NODE_index);
+					lvoid_processor_id = op_id_from_name(lvoid_NODE_id, OPC_OBJTYPE_PROC, lvch_NODE_name);
+					if (lvoid_NODE_id == OPC_OBJID_INVALID)
+					{
+						memset(lvch_string, 0, 100);
+						sprintf(lvch_string, "Error: HE_%d.PHY can't be found!", lvi_NODE_index);
+						op_sim_end(lvch_string, "Error source module: global_init", "Error source state: NODE_init.enter", "");
+					}
+					else
+					{
+						gvp_node_objid[lvi_NODE_index].PHY = lvoid_processor_id;
+					}
+					printf("index %d: NODE_id=%d, PHY_id=%d\n", lvi_NODE_index, lvoid_NODE_id, lvoid_processor_id);
 				}	
 				
 				/* CPE_init */
 				for (lvi_NODE_index = gvi_HE_num; lvi_NODE_index < gvi_HE_num+gvi_CPE_num; lvi_NODE_index++)
 				{
-					/* Objid node_id */
+					/* Objid node id */
 					memset(lvch_NODE_name, 0, 12);
 					sprintf(lvch_NODE_name, "CPE_%d", lvi_NODE_index-gvi_HE_num);
 					lvoid_NODE_id = op_id_from_name(lvoid_subnet, OPC_OBJTYPE_NDFIX, lvch_NODE_name);
@@ -200,12 +215,28 @@ global_init (OP_SIM_CONTEXT_ARG_OPT)
 					{
 						memset(lvch_string, 0, 100);
 						sprintf(lvch_string, "Error: HE_%d can't be found!", lvi_NODE_index);
-						op_sim_end(lvch_string, "Error source module: global_init", "Error source state: HE_init.enter", "");
+						op_sim_end(lvch_string, "Error source module: global_init", "Error source state: NODE_init.enter", "");
 					}
 					else
 					{
-						gvp_node_objid[lvi_NODE_index].PHY = lvoid_NODE_id;
+						gvp_node_objid[lvi_NODE_index].NODE = lvoid_NODE_id;
 					}
+					
+					/* find node.PHY id*/
+					memset(lvch_NODE_name, 0, 12);
+					sprintf(lvch_NODE_name, "PHY", lvi_NODE_index);
+					lvoid_processor_id = op_id_from_name(lvoid_NODE_id, OPC_OBJTYPE_PROC, lvch_NODE_name);
+					if (lvoid_NODE_id == OPC_OBJID_INVALID)
+					{
+						memset(lvch_string, 0, 100);
+						sprintf(lvch_string, "Error: CPE_%d.PHY can't be found!", lvi_NODE_index);
+						op_sim_end(lvch_string, "Error source module: global_init", "Error source state: NODE_init.enter", "");
+					}
+					else
+					{
+						gvp_node_objid[lvi_NODE_index].PHY = lvoid_processor_id;
+					}
+					printf("index %d: NODE_id=%d, PHY_id=%d\n", lvi_NODE_index, lvoid_NODE_id, lvoid_processor_id);
 				}	
 				}
 				FSM_PROFILE_SECTION_OUT (state1_enter_exec)

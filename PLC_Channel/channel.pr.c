@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54924140 54924140 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5492DA4C 5492DA4C 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -1193,7 +1193,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				{
 				/* send channel inited intrpt */
 				op_intrpt_schedule_mcast_global(op_sim_time(), INTRPT_CHANNEL_INITED);
-				op_sim_message("Success", "channel send MCAST intrpt: INTRPT_CHANNEL_INITED");
+				op_sim_message("Channel init success!", "channel send MCAST intrpt: INTRPT_CHANNEL_INITED");
 				}
 				FSM_PROFILE_SECTION_OUT (state5_enter_exec)
 

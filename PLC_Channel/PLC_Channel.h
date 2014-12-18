@@ -46,6 +46,7 @@ typedef struct PPDU_T
 
 typedef struct NODE_OID_T
 {
+	Objid NODE;
 	Objid PHY;
 	Objid MAC;
 } NODE_OID_T;

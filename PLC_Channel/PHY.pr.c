@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54923FA4 54923FA4 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5492D9B8 5492D9B8 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -231,7 +231,7 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 				lvp_ppdu->start_time = op_sim_time();
 				lvp_ppdu->end_time = op_sim_time() + op_dist_uniform(5);
 				lvp_ppdu->transmitter_node_index = svi_CPE_index;
-				lvp_ppdu->receiver_node_index = 1;    // for test, only one HE
+				lvp_ppdu->receiver_node_index = 0;    // for test, only one HE
 				lvp_dist = op_dist_load("normal", 3.16, 1);    //mean power 35dBm = 3.16w
 				lvp_ppdu->power_linear = op_dist_outcome(lvp_dist);
 				op_dist_unload(lvp_dist);
@@ -312,9 +312,9 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 						break;
 					}
 				}
-				if (svi_CPE_index == gvi_HE_num)
+				if (svi_CPE_index == gvi_HE_num+gvi_CPE_num)
 				{
-					op_sim_end("CPE index exceed gvi_HE_num",  "Error source module: CPE_PHY", "Error source state: init.enter", "");
+					op_sim_end("CPE index exceed gvi_HE_num+gvi_CPE_num",  "Error source module: CPE_PHY", "Error source state: init.enter", "");
 				}
 				
 				/* schedule first PPDU */

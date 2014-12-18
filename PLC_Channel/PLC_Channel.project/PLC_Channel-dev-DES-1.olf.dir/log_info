@@ -1,7 +1,7 @@
 
 [Log Info:]
 version :	1
-row_count :	2
+row_count :	1
 max_log_row :	5000
 max_file_row :	1000
 hide_date :	TRUE
@@ -9,7 +9,7 @@ include_severity :	TRUE
 file_count :	1
 
 [File List:]
-4060_12-18-2014_03.04.25	2	03:04:26 Dec 18 2014	03:04:26 Dec 18 2014
+8056_12-18-2014_13.56.09	1	13:56:09 Dec 18 2014	13:56:09 Dec 18 2014
 
 [Column Dependency List:]
 dependency_count :	1
