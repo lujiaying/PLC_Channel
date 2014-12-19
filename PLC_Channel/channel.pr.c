@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548A63A0 548A63A0 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5494330A 5494330A 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -24,6 +24,8 @@ const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548A63A0 548A6
 #define TIME_TO_UPDATE			((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_TIME_TO_UPDATE))
 #define PPDU_START				((op_intrpt_type() == OPC_INTRPT_REMOTE) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
 #define PPDU_TIME_END			((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_END))			
+
+#define IMPEDANCE_UPDATE_TIME_DELTA		5
 
 /* enum */
 typedef enum NODE_TYPE_T
@@ -170,7 +172,7 @@ PPDU_receive_power_calculate(int lvi_receiver_node_index, PPDU_T *lvp_PPDU)
 	printf("[PPDU_receive_power_calculate] ppdu_index:%d, receiver_node:%d, power:%lf mw,\n", lvp_PPDU->PPDU_index, lvi_receiver_node_index, lvp_PPDU->power_linear);  
 	printf("pathloss:%lf, mis:%lf, phase_coupling:%lf\n", lvd_pathloss_linear, lvd_matchmiss_linear, lvd_phase_coupling_coefficient);
     
-	FRET(lvp_PPDU->power_linear*(1-lvd_pathloss_linear)*lvd_matchmiss_linear*lvd_phase_coupling_coefficient);
+	FRET(lvp_PPDU->power_linear*lvd_pathloss_linear*lvd_matchmiss_linear*lvd_phase_coupling_coefficient);
 }
 
 
@@ -454,7 +456,7 @@ topology_init(FILE *fin)
 	//	 Args:
 	//		 FILE *fin: file with 6 columns, column type is int.
 	//  Return:
-	//  	 DISTANCE_PHASE_T **: a matrix, length == gvi_total_num.    
+	//  	 DISTANCE_PHASE_T **: a matrix, length == lvi_total_num.    
 	**/
 
 	NODE_T *lvp_node;
@@ -465,64 +467,67 @@ topology_init(FILE *fin)
 	int lvi_index_temp_i, lvi_index_temp_j;
 	int *lvp_tmp_id;
 	char lvc_msg[100];
+	int lvi_total_num, lvi_root_num;
 	
 	FIN(topology_init());
 	printf("enter topology_init\n");
-	gvi_total_num = 0;
+	lvi_total_num = 0;
+	lvi_root_num = 1;
     
 	/* read from file */
-	lvp_node = (NODE_T *)op_prg_mem_alloc((gvi_total_num+1)*sizeof(NODE_T));
-	while (fscanf(fin, "%d %d %d %lf %d", &(lvp_node[gvi_total_num].node_id), &(lvp_node[gvi_total_num].type), &(lvp_node[gvi_total_num].parent_id), &(lvp_node[gvi_total_num].distance), &(lvp_node[gvi_total_num].phase)))
+	lvp_node = (NODE_T *)op_prg_mem_alloc((lvi_total_num+1)*sizeof(NODE_T));
+	while (fscanf(fin, "%d %d %d %lf %d", &(lvp_node[lvi_total_num].node_id), &(lvp_node[lvi_total_num].type), &(lvp_node[lvi_total_num].parent_id), &(lvp_node[lvi_total_num].distance), &(lvp_node[lvi_total_num].phase)))
 	{
 		if (feof(fin))
 		{
 			printf("read file end!\n");
 			break;
 		}
-		printf("%d: %d %d %d %lf %d\n", gvi_total_num, lvp_node[gvi_total_num].node_id, lvp_node[gvi_total_num].type, lvp_node[gvi_total_num].parent_id, lvp_node[gvi_total_num].distance, lvp_node[gvi_total_num].phase);
+		printf("%d: %d %d %d %lf %d\n", lvi_total_num, lvp_node[lvi_total_num].node_id, lvp_node[lvi_total_num].type, lvp_node[lvi_total_num].parent_id, lvp_node[lvi_total_num].distance, lvp_node[lvi_total_num].phase);
 		/* calculate TYPE nums */
-		if (lvp_node[gvi_total_num].type == TYPE_HE)
+		if (lvp_node[lvi_total_num].type == TYPE_HE)
 		{
 			gvi_HE_num += 1;
 		}
-		else if (lvp_node[gvi_total_num].type == TYPE_CPE)
+		else if (lvp_node[lvi_total_num].type == TYPE_CPE)
 		{
 			gvi_CPE_num += 1;
 		}
-		else if (lvp_node[gvi_total_num].type == TYPE_NOISE)
+		else if (lvp_node[lvi_total_num].type == TYPE_NOISE)
 		{
 	 		gvi_NOISE_num += 1;
 		}
-		else if (lvp_node[gvi_total_num].type == TYPE_X)
+		else if (lvp_node[lvi_total_num].type == TYPE_X)
 		{
 			gvi_X_num += 1;
 		}
 		else
 		{
-	 		printf("error occurs in node[%d], it's type=%d\n", gvi_total_num, lvp_node[gvi_total_num].type);
+	 		printf("error occurs in node[%d], it's type=%d\n", lvi_total_num, lvp_node[lvi_total_num].type);
 		}
 		
-		gvi_total_num += 1;
-		lvp_node = (NODE_T *)op_prg_mem_realloc(lvp_node, (gvi_total_num+1)*sizeof(NODE_T));
+		lvi_total_num += 1;
+		lvp_node = (NODE_T *)op_prg_mem_realloc(lvp_node, (lvi_total_num+1)*sizeof(NODE_T));
 	}
-
-	if (gvi_total_num != gvi_HE_num+gvi_CPE_num+gvi_NOISE_num+gvi_X_num)
+	
+	gvi_X_num --;     //root.type == X
+	if (lvi_total_num != lvi_root_num+gvi_HE_num+gvi_CPE_num+gvi_NOISE_num+gvi_X_num)
 	{
 
-		sprintf(lvc_msg, "gvi_total_num: %d, sum: %d", gvi_total_num, gvi_HE_num+gvi_CPE_num+gvi_NOISE_num+gvi_X_num);
-		op_sim_end("err: gvi_total_num != gvi_HE_num+gvi_CPE_num+gvi_NOISE_num+gvi_X_num", lvc_msg, "", "");
+		sprintf(lvc_msg, "lvi_total_num: %d, sum: %d", lvi_total_num, gvi_HE_num+gvi_CPE_num+gvi_NOISE_num+gvi_X_num);
+		op_sim_end("err: lvi_total_num != gvi_HE_num+gvi_CPE_num+gvi_NOISE_num+gvi_X_num", lvc_msg, "", "");
 	}
 	else
 	{
-		sprintf(lvc_msg, "gvi_total_num:%d, gvi_HE_num:%d, gvi_CPE_num:%d, gvi_NOISE_num:%d, gvi_X_num:%d", gvi_total_num, gvi_HE_num, gvi_CPE_num, gvi_NOISE_num, gvi_X_num);
+		sprintf(lvc_msg, "total_num:%d(with a root), HE_num:%d, CPE_num:%d, NOISE_num:%d, X_num:%d", lvi_total_num, gvi_HE_num, gvi_CPE_num, gvi_NOISE_num, gvi_X_num);
 		op_sim_message("read file success", lvc_msg);
 	}
 	
 	/* generate distance_phase_matrix */
 	//* find common father node *//
 	///* generate reverse list: leaf->parent->...->root *///
-	lvpp_rlist = (Prg_List **)op_prg_mem_alloc(gvi_total_num * sizeof(Prg_List *));
-	for (lvi_index_i=0; lvi_index_i<gvi_total_num; lvi_index_i++)
+	lvpp_rlist = (Prg_List **)op_prg_mem_alloc(lvi_total_num * sizeof(Prg_List *));
+	for (lvi_index_i=0; lvi_index_i<lvi_total_num; lvi_index_i++)
 	{
 		lvpp_rlist[lvi_index_i] = prg_list_create();
 		prg_list_insert(lvpp_rlist[lvi_index_i], &(lvp_node[lvi_index_i].node_id), PRGC_LISTPOS_TAIL);
@@ -537,11 +542,11 @@ topology_init(FILE *fin)
 		printf(" (len:%d)\n", prg_list_size(lvpp_rlist[lvi_index_i]));
 	}
 	
-	svpp_distance_phase_matrix = (DISTANCE_PHASE_T **)op_prg_mem_alloc(gvi_total_num * sizeof(DISTANCE_PHASE_T **));
+	svpp_distance_phase_matrix = (DISTANCE_PHASE_T **)op_prg_mem_alloc(lvi_total_num * sizeof(DISTANCE_PHASE_T **));
 	// init must success before use!!!
 	for (lvi_index_i=0; lvi_index_i<gvi_HE_num+gvi_CPE_num+gvi_NOISE_num; lvi_index_i++)
 	{
-		svpp_distance_phase_matrix[lvi_index_i] = (DISTANCE_PHASE_T *)op_prg_mem_alloc(gvi_total_num * sizeof(DISTANCE_PHASE_T));
+		svpp_distance_phase_matrix[lvi_index_i] = (DISTANCE_PHASE_T *)op_prg_mem_alloc(lvi_total_num * sizeof(DISTANCE_PHASE_T));
 	}
 
 	for (lvi_index_i=0; lvi_index_i<gvi_HE_num+gvi_CPE_num+gvi_NOISE_num; lvi_index_i++)
@@ -636,7 +641,7 @@ propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix,
 	a0 = 0;
 	a1 = 8.75 * pow(10, -10);
 	k = 1;
-	f = 5 * pow(10, 6);
+	f = 7 * pow(10, 6);
 	
 	
 	for (lvi_index_i=0; lvi_index_i<attenu_num; lvi_index_i++)
@@ -645,11 +650,11 @@ propagation_attenuation_generate(DISTANCE_PHASE_T const **distance_phase_matrix,
 		{
 			if (lvi_index_i == lvi_index_j)
 			{
-				propagation_attenuation_matrix[lvi_index_i][lvi_index_j] = 0;
+				propagation_attenuation_matrix[lvi_index_i][lvi_index_j] = 1.0;
 			}
 			else
 			{
-				propagation_attenuation_matrix[lvi_index_i][lvi_index_j] = exp(-(a0 + a1*pow(f, k))*distance_phase_matrix[lvi_index_i][lvi_index_j].dis_total);
+				propagation_attenuation_matrix[lvi_index_i][lvi_index_j] = pow(exp(-(a0 + a1*pow(f, k))*distance_phase_matrix[lvi_index_i][lvi_index_j].dis_total), 2);
 			}
 			printf("propagation_attenuation_matrix[%d][%d] =%0.4lf\n", lvi_index_i, lvi_index_j, propagation_attenuation_matrix[lvi_index_i][lvi_index_j]);
 		}
@@ -955,7 +960,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				
 				/* set self intrpt, update impedance_vector*/
 				printf("init end. And current sim time: %ld\n", op_sim_time());
-				op_intrpt_schedule_self(op_sim_time()+10, INTRPT_CHANNEL_TIME_TO_UPDATE);
+				op_intrpt_schedule_self(op_sim_time()+IMPEDANCE_UPDATE_TIME_DELTA, INTRPT_CHANNEL_TIME_TO_UPDATE);
 				
 				/* send channel inited intrpt */
 				op_intrpt_schedule_mcast_global(op_sim_time(), INTRPT_CHANNEL_INITED);
@@ -1047,7 +1052,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				lvd_mean = 90;
 				lvd_std_deviation = 4.5;
 				impedance_vector_update(svp_impedance_vector, gvi_HE_num+gvi_CPE_num, lvd_mean, lvd_std_deviation);
-				op_intrpt_schedule_self(op_sim_time()+10, INTRPT_CHANNEL_TIME_TO_UPDATE);
+				op_intrpt_schedule_self(op_sim_time()+IMPEDANCE_UPDATE_TIME_DELTA, INTRPT_CHANNEL_TIME_TO_UPDATE);
 				}
 				FSM_PROFILE_SECTION_OUT (state2_enter_exec)
 
