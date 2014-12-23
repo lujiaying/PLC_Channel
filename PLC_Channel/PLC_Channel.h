@@ -3,9 +3,6 @@
 #ifndef _PLC_CHANNEL
 #define _PLC_CHANNEL
 
-extern Objid gvoid_channel, gvoid_noise_generater, gvoid_PHY;
-extern int gvi_HE_num, gvi_CPE_num, gvi_NOISE_num, gvi_X_num, gvi_total_num;
-
 typedef enum INTRPT_CHANNEL_T
 {
 	INTRPT_CHANNEL_INITED = 31,
@@ -45,5 +42,15 @@ typedef struct PPDU_T
 	int actual_receiver_number;
 	PPDU_SINR_T *actual_receiver_array;
 } PPDU_T;
+
+typedef struct NODE_OBJID_T
+{
+	Objid NODE_id;
+	Objid PHY_id;
+} NODE_OBJID_T;
+
+extern Objid gvoid_channel, gvoid_noise_generater, gvoid_PHY;
+extern int gvi_HE_num, gvi_CPE_num, gvi_NOISE_num, gvi_X_num, gvi_total_num;
+extern NODE_OBJID_T *gvoid_node_oids;
 
 #endif

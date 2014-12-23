@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 548806C8 548806C8 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5498CF3B 5498CF3B 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -246,6 +246,7 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 				{
 				Ici *lvp_ici;
 				PPDU_T *lvp_PPDU;
+				int lvi_actual_receiver_index;
 				
 				/* receive PPDU from Channel*/
 				lvp_ici = op_intrpt_ici();
@@ -261,6 +262,10 @@ PHY (OP_SIM_CONTEXT_ARG_OPT)
 				printf("============================================\n");
 				
 				/* free memory */
+				for (lvi_actual_receiver_index = 0; lvi_actual_receiver_index < lvp_PPDU->actual_receiver_number; lvi_actual_receiver_index++)
+				{
+					prg_list_free(lvp_PPDU->actual_receiver_array[lvi_actual_receiver_index].segment_sinr);
+				}
 				op_prg_mem_free(lvp_PPDU->actual_receiver_array);
 				prg_mem_free(lvp_PPDU);
 				}
