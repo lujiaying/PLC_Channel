@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5498DCC2 5498DCC2 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54991FEF 54991FEF 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -74,6 +74,7 @@ typedef struct DISTANCE_PHASE_T
 /* end struct */
 
 
+/* function declare */
 static double PPDU_receive_power_calculate(int, PPDU_T *);
 static double period_noise_power_get(void);
 static double phase_coupling_coefficient_get(int, int);
@@ -87,7 +88,10 @@ static void impedance_correlation_generate(DISTANCE_PHASE_T const **, double **,
 static void phase_coupling_parameter_generate(DISTANCE_PHASE_T const **, double **, int);
 static void impedance_vector_init(double *, int, double, double);
 static void impedance_vector_update(double *, int, double, double);
+static void find_NODE_Objids(Objid);
 
+
+/* Global variables*/
 int gvi_HE_num = 0, gvi_CPE_num = 0, gvi_NOISE_num = 0, gvi_X_num = 0, gvi_total_num = 0;
 Objid gvoid_channel;
 NODE_OBJID_T *gvoid_node_oids;
@@ -841,6 +845,53 @@ phase_coupling_coefficient_generate(const double **phase_coupling_parameter_matr
 	FOUT;
 }
 
+
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2014.12.23                                  */
+/* Remarks:                                                 */
+/************************************************************/
+static void
+find_NODE_Objids(Objid subnet_id)
+{
+	char lvch_NODE_name[12];
+	Objid lvoid_NODE_id;
+	char lvch_string[100];
+	int lvi_NODE_index;
+
+	FIN(find_NODE_Objids());
+	
+	for (lvi_NODE_index = 0; lvi_NODE_index < gvi_HE_num+gvi_CPE_num; lvi_NODE_index++)
+	{
+		/* Objid node_id */
+		memset(lvch_NODE_name, 0, 12);
+		if (lvi_NODE_index < gvi_HE_num)
+		{
+			sprintf(lvch_NODE_name, "HE_%d", lvi_NODE_index);
+		}
+		else
+		{
+			sprintf(lvch_NODE_name, "CPE_%d", lvi_NODE_index-gvi_HE_num);
+		}
+		
+		lvoid_NODE_id = op_id_from_name(subnet_id, OPC_OBJTYPE_NDFIX, lvch_NODE_name);
+		if (lvoid_NODE_id == OPC_OBJID_INVALID)
+			{
+			memset(lvch_string, 0, 100);
+			sprintf(lvch_string, "Error: NODE:%d can't be found!", lvi_NODE_index);
+			op_sim_end(lvch_string, "Error source module: channel.NODE_init.Enter", "Error source function: find_NODE_Objids()", "");
+			}
+		else
+		{
+			gvoid_node_oids[lvi_NODE_index].node_id = lvoid_NODE_id;
+		}
+		
+	}
+	
+	FOUT;
+}
+
 /* End of Function Block */
 
 /* Undefine optional tracing in FIN/FOUT/FRET */
@@ -1177,7 +1228,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				lvp_ici = op_ici_create("PPDU");
 				op_ici_attr_set(lvp_ici, "PPDU_ptr", lvp_PPDU);
 				op_ici_install(lvp_ici);
-				op_intrpt_schedule_remote(op_sim_time(), INTRPT_CHANNEL_PPDU_END, gvoid_PHY);
+				op_intrpt_schedule_remote(op_sim_time(), INTRPT_CHANNEL_PPDU_END, gvoid_node_oids[lvp_PPDU->transmitter_node_index].phy_id);
 				op_ici_install(OPC_NIL);
 				}
 				FSM_PROFILE_SECTION_OUT (state4_enter_exec)
@@ -1196,7 +1247,13 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 			FSM_STATE_ENTER_FORCED (5, "NODE_init", state5_enter_exec, "channel [NODE_init enter execs]")
 				FSM_PROFILE_SECTION_IN ("channel [NODE_init enter execs]", state5_enter_exec)
 				{
+				Objid lvoid_subnet;
+				
 				gvoid_node_oids = (NODE_OBJID_T *)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num+gvi_NOISE_num) * sizeof(NODE_OBJID_T));
+				lvoid_subnet = op_topo_parent(op_topo_parent(op_id_self()));
+					
+				/* find NODE Objids */
+				find_NODE_Objids(lvoid_subnet);
 				}
 				FSM_PROFILE_SECTION_OUT (state5_enter_exec)
 
@@ -1212,6 +1269,12 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 
 			/** state (send_sys_init) enter executives **/
 			FSM_STATE_ENTER_FORCED (6, "send_sys_init", state6_enter_exec, "channel [send_sys_init enter execs]")
+				FSM_PROFILE_SECTION_IN ("channel [send_sys_init enter execs]", state6_enter_exec)
+				{
+				/* send sys init intrpt */
+				op_intrpt_schedule_mcast_global(op_sim_time(), INTRPT_SYS_INIT);
+				}
+				FSM_PROFILE_SECTION_OUT (state6_enter_exec)
 
 			/** state (send_sys_init) exit executives **/
 			FSM_STATE_EXIT_FORCED (6, "send_sys_init", "channel [send_sys_init exit execs]")

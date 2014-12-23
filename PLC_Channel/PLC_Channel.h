@@ -45,8 +45,8 @@ typedef struct PPDU_T
 
 typedef struct NODE_OBJID_T
 {
-	Objid NODE_id;
-	Objid PHY_id;
+	Objid node_id;
+	Objid phy_id;
 } NODE_OBJID_T;
 
 extern Objid gvoid_channel, gvoid_noise_generater, gvoid_PHY;

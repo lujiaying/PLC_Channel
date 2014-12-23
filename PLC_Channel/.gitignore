@@ -6,4 +6,5 @@
 *.exp
 *.pdb
 *.seq
+*.lib
 *log_info

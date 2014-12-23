@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char CPE_PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5498DCBB 5498DCBB 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char CPE_PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54991F1C 54991F1C 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -16,8 +16,10 @@ const char CPE_PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5498DCBB 5498D
 
 /* Header Block */
 
+#include "PLC_def.h"
 #include "PLC_Channel.h"
 
+#define SYS_INITED			((op_intrpt_type() == OPC_INTRPT_MCAST) && (op_intrpt_code() == INTRPT_SYS_INIT))
 #define PPDU_TIME_START		((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
 #define PPDU_END			((op_intrpt_type() == OPC_INTRPT_REMOTE) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_END))			
 
@@ -29,6 +31,7 @@ const char CPE_PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5498DCBB 5498D
 Objid gvoid_PHY;
 
 static void PPDU_attr_set(PPDU_T *);
+static int self_index_find(Objid);
 
 /* End of Header Block */
 
@@ -52,10 +55,12 @@ typedef struct
 	/* State Variables */
 	Distribution *	         		svp_exp_dist                                    ;
 	Distribution *	         		svp_normal_dist                                 ;
+	int	                    		svi_node_index                                  ;
 	} CPE_PHY_state;
 
 #define svp_exp_dist            		op_sv_ptr->svp_exp_dist
 #define svp_normal_dist         		op_sv_ptr->svp_normal_dist
+#define svi_node_index          		op_sv_ptr->svi_node_index
 
 /* These macro definitions will define a local variable called	*/
 /* "op_sv_ptr" in each function containing a FIN statement.	*/
@@ -88,11 +93,38 @@ PPDU_attr_set(PPDU_T *ppdu)
 	ppdu->type = 0;
 	ppdu->start_time = op_sim_time();
 	ppdu->end_time = op_sim_time() + op_dist_uniform(PPDU_LIVE_TIME);
-	ppdu->transmitter_node_index = 1 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);	//HE index start from 2
-	ppdu->receiver_node_index = 1 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);
+	ppdu->transmitter_node_index = svi_node_index;
+	ppdu->receiver_node_index = 0;
 	ppdu->power_linear = op_dist_outcome(svp_normal_dist);
 	
 	FOUT;
+}
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2014.12.23                                  */
+/* Remarks:        											*/
+/************************************************************/
+static int
+self_index_find(Objid node_id)
+{
+	int lvi_node_index;
+	
+	//Consider this func as a global func. 
+	//PHY, MAC, TRAFFIC, MAC_CONTROL can use this func.
+	FIN(self_index_find());
+	
+	for (lvi_node_index = 0; lvi_node_index < gvi_HE_num+gvi_CPE_num; lvi_node_index++)
+	{
+		if (gvoid_node_oids[lvi_node_index].node_id == node_id)
+		{
+			FRET(lvi_node_index);
+		}
+	}
+	
+		op_sim_end("Error: NODE index can't be found!", "Error source module: PHY", "Error source function: self_index_find()", "");
+		
+	FRET(-1);
 }
 
 /* End of Function Block */
@@ -144,14 +176,18 @@ CPE_PHY (OP_SIM_CONTEXT_ARG_OPT)
 			{
 			/*---------------------------------------------------------*/
 			/** state (init) enter executives **/
-			FSM_STATE_ENTER_FORCED_NOLABEL (0, "init", "CPE_PHY [init enter execs]")
+			FSM_STATE_ENTER_FORCED (0, "init", state0_enter_exec, "CPE_PHY [init enter execs]")
 				FSM_PROFILE_SECTION_IN ("CPE_PHY [init enter execs]", state0_enter_exec)
 				{
 				double lvd_ppdu_time;
 				svp_exp_dist = op_dist_load("exponential", PPDU_DELTA_TIME, 0);
 				svp_normal_dist = op_dist_load("normal", PPDU_POWER_MEAN, PPDU_POWER_SD);      //398mw = 26dBm
 				
-				gvoid_PHY = op_id_self();
+				
+				/* find self index */
+				svi_node_index = self_index_find(op_topo_parent(op_id_self()));
+				/* set PHY Objid */
+				gvoid_node_oids[svi_node_index].phy_id = op_id_self();
 				
 				/* schedule first PPDU */
 				lvd_ppdu_time = op_dist_outcome(svp_exp_dist);
@@ -306,10 +342,37 @@ CPE_PHY (OP_SIM_CONTEXT_ARG_OPT)
 
 
 
+			/** state (wait_sys_inited) enter executives **/
+			FSM_STATE_ENTER_UNFORCED (4, "wait_sys_inited", state4_enter_exec, "CPE_PHY [wait_sys_inited enter execs]")
+
+			/** blocking after enter executives of unforced state. **/
+			FSM_EXIT (9,"CPE_PHY")
+
+
+			/** state (wait_sys_inited) exit executives **/
+			FSM_STATE_EXIT_UNFORCED (4, "wait_sys_inited", "CPE_PHY [wait_sys_inited exit execs]")
+
+
+			/** state (wait_sys_inited) transition processing **/
+			FSM_PROFILE_SECTION_IN ("CPE_PHY [wait_sys_inited trans conditions]", state4_trans_conds)
+			FSM_INIT_COND (SYS_INITED)
+			FSM_DFLT_COND
+			FSM_TEST_LOGIC ("wait_sys_inited")
+			FSM_PROFILE_SECTION_OUT (state4_trans_conds)
+
+			FSM_TRANSIT_SWITCH
+				{
+				FSM_CASE_TRANSIT (0, 0, state0_enter_exec, ;, "SYS_INITED", "", "wait_sys_inited", "init", "tr_6", "CPE_PHY [wait_sys_inited -> init : SYS_INITED / ]")
+				FSM_CASE_TRANSIT (1, 4, state4_enter_exec, ;, "default", "", "wait_sys_inited", "wait_sys_inited", "tr_7", "CPE_PHY [wait_sys_inited -> wait_sys_inited : default / ]")
+				}
+				/*---------------------------------------------------------*/
+
+
+
 			}
 
 
-		FSM_EXIT (0,"CPE_PHY")
+		FSM_EXIT (4,"CPE_PHY")
 		}
 	}
 
@@ -345,6 +408,7 @@ _op_CPE_PHY_terminate (OP_SIM_CONTEXT_ARG_OPT)
 /* local variable prs_ptr in _op_CPE_PHY_svar function. */
 #undef svp_exp_dist
 #undef svp_normal_dist
+#undef svi_node_index
 
 #undef FIN_PREAMBLE_DEC
 #undef FIN_PREAMBLE_CODE
@@ -360,7 +424,7 @@ _op_CPE_PHY_init (int * init_block_ptr)
 
 	obtype = Vos_Define_Object_Prstate ("proc state vars (CPE_PHY)",
 		sizeof (CPE_PHY_state));
-	*init_block_ptr = 0;
+	*init_block_ptr = 8;
 
 	FRET (obtype)
 	}
@@ -379,7 +443,7 @@ _op_CPE_PHY_alloc (VosT_Obtype obtype, int init_block)
 		{
 		ptr->_op_current_block = init_block;
 #if defined (OPD_ALLOW_ODB)
-		ptr->_op_current_state = "CPE_PHY [init enter execs]";
+		ptr->_op_current_state = "CPE_PHY [wait_sys_inited enter execs]";
 #endif
 		}
 	FRET ((VosT_Address)ptr)
@@ -409,6 +473,11 @@ _op_CPE_PHY_svar (void * gen_ptr, const char * var_name, void ** var_p_ptr)
 	if (strcmp ("svp_normal_dist" , var_name) == 0)
 		{
 		*var_p_ptr = (void *) (&prs_ptr->svp_normal_dist);
+		FOUT
+		}
+	if (strcmp ("svi_node_index" , var_name) == 0)
+		{
+		*var_p_ptr = (void *) (&prs_ptr->svi_node_index);
 		FOUT
 		}
 	*var_p_ptr = (void *)OPC_NIL;
