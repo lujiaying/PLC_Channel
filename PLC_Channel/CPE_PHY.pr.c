@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char CPE_PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5498DA85 5498DA85 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char CPE_PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5498DCBB 5498DCBB 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -21,11 +21,14 @@ const char CPE_PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5498DA85 5498D
 #define PPDU_TIME_START		((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
 #define PPDU_END			((op_intrpt_type() == OPC_INTRPT_REMOTE) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_END))			
 
-#define PPDU_TIME_DELTA		1
+#define PPDU_DELTA_TIME		1
+#define PPDU_LIVE_TIME		5
 #define PPDU_POWER_MEAN		398
 #define PPDU_POWER_SD		1
 
 Objid gvoid_PHY;
+
+static void PPDU_attr_set(PPDU_T *);
 
 /* End of Header Block */
 
@@ -65,11 +68,34 @@ typedef struct
 		op_sv_ptr = ((CPE_PHY_state *)(OP_SIM_CONTEXT_PTR->_op_mod_state_ptr));
 
 
-/* No Function Block */
+/* Function Block */
 
 #if !defined (VOSD_NO_FIN)
-enum { _op_block_origin = __LINE__ };
+enum { _op_block_origin = __LINE__ + 2};
 #endif
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2014.12.23                                  */
+/* Remarks:        											*/
+/************************************************************/
+static void
+PPDU_attr_set(PPDU_T *ppdu)
+{
+	FIN(PPDU_attr_set());
+	
+	// set PPDU attr
+	ppdu->type = 0;
+	ppdu->start_time = op_sim_time();
+	ppdu->end_time = op_sim_time() + op_dist_uniform(PPDU_LIVE_TIME);
+	ppdu->transmitter_node_index = 1 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);	//HE index start from 2
+	ppdu->receiver_node_index = 1 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);
+	ppdu->power_linear = op_dist_outcome(svp_normal_dist);
+	
+	FOUT;
+}
+
+/* End of Function Block */
 
 /* Undefine optional tracing in FIN/FOUT/FRET */
 /* The FSM has its own tracing code and the other */
@@ -122,7 +148,7 @@ CPE_PHY (OP_SIM_CONTEXT_ARG_OPT)
 				FSM_PROFILE_SECTION_IN ("CPE_PHY [init enter execs]", state0_enter_exec)
 				{
 				double lvd_ppdu_time;
-				svp_exp_dist = op_dist_load("exponential", PPDU_TIME_DELTA, 0);
+				svp_exp_dist = op_dist_load("exponential", PPDU_DELTA_TIME, 0);
 				svp_normal_dist = op_dist_load("normal", PPDU_POWER_MEAN, PPDU_POWER_SD);      //398mw = 26dBm
 				
 				gvoid_PHY = op_id_self();
@@ -213,14 +239,8 @@ CPE_PHY (OP_SIM_CONTEXT_ARG_OPT)
 				
 				/* send PPDU to channel*/
 				lvp_ici = op_ici_create("PPDU");
-				// set PPDU attr
 				lvp_ppdu = (PPDU_T *)prg_mem_alloc(1*sizeof(PPDU_T));
-				lvp_ppdu->type = 0;
-				lvp_ppdu->start_time = op_sim_time();
-				lvp_ppdu->end_time = op_sim_time() + op_dist_uniform(5);
-				lvp_ppdu->transmitter_node_index = 1 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);	//HE index start from 2
-				lvp_ppdu->receiver_node_index = 1 + (int)(op_dist_uniform(gvi_CPE_num)+0.5);
-				lvp_ppdu->power_linear = op_dist_outcome(svp_normal_dist);
+				PPDU_attr_set(lvp_ppdu);
 				printf("[PHY.send_PPDU_2Channel] transmitter:%d, receiver:%d, power_linear:%lf, start_time:%lf, end_time:%lf\n", lvp_ppdu->transmitter_node_index, lvp_ppdu->receiver_node_index, lvp_ppdu->power_linear, lvp_ppdu->start_time, lvp_ppdu->end_time);
 				
 				op_ici_attr_set_ptr(lvp_ici, "PPDU_ptr", lvp_ppdu);

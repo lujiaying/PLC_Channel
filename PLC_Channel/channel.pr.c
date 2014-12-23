@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5498CC19 5498CC19 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5498DCC2 5498DCC2 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -90,6 +90,7 @@ static void impedance_vector_update(double *, int, double, double);
 
 int gvi_HE_num = 0, gvi_CPE_num = 0, gvi_NOISE_num = 0, gvi_X_num = 0, gvi_total_num = 0;
 Objid gvoid_channel;
+NODE_OBJID_T *gvoid_node_oids;
 
 /* End of Header Block */
 
@@ -183,7 +184,7 @@ PPDU_receive_power_calculate(int lvi_receiver_node_index, PPDU_T *lvp_PPDU)
 /************************************************************/
 /* Author: jiaying.lu                                       */
 /* Last Update: 2014.12.10                                  */
-/* Remarks:        														    */
+/* Remarks:        											*/
 /************************************************************/
 static double
 period_noise_power_get()
@@ -976,7 +977,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 
 
 			/** state (init) transition processing **/
-			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "init", "idle", "tr_0", "channel [init -> idle : default / ]")
+			FSM_TRANSIT_FORCE (5, state5_enter_exec, ;, "default", "", "init", "NODE_init", "tr_16", "channel [init -> NODE_init : default / ]")
 				/*---------------------------------------------------------*/
 
 
@@ -1076,7 +1077,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				
 				/* receive PPDU */
 				lvp_ici = op_intrpt_ici();
-				op_ici_attr_get(lvp_ici, "PPDU_ptr", &lvp_PPDU);
+				op_ici_attr_get_ptr(lvp_ici, "PPDU_ptr", &lvp_PPDU);
 				op_ici_destroy(lvp_ici);
 				lvp_ici = OPC_NIL;
 				printf("[channel.receive_PPDU] type=%d, start_time=%lf, end_time=%lf\n", lvp_PPDU->type, lvp_PPDU->start_time, lvp_PPDU->end_time);
@@ -1187,6 +1188,37 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 
 			/** state (send_PPDU) transition processing **/
 			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "send_PPDU", "idle", "tr_11", "channel [send_PPDU -> idle : default / ]")
+				/*---------------------------------------------------------*/
+
+
+
+			/** state (NODE_init) enter executives **/
+			FSM_STATE_ENTER_FORCED (5, "NODE_init", state5_enter_exec, "channel [NODE_init enter execs]")
+				FSM_PROFILE_SECTION_IN ("channel [NODE_init enter execs]", state5_enter_exec)
+				{
+				gvoid_node_oids = (NODE_OBJID_T *)op_prg_mem_alloc((gvi_HE_num+gvi_CPE_num+gvi_NOISE_num) * sizeof(NODE_OBJID_T));
+				}
+				FSM_PROFILE_SECTION_OUT (state5_enter_exec)
+
+			/** state (NODE_init) exit executives **/
+			FSM_STATE_EXIT_FORCED (5, "NODE_init", "channel [NODE_init exit execs]")
+
+
+			/** state (NODE_init) transition processing **/
+			FSM_TRANSIT_FORCE (6, state6_enter_exec, ;, "default", "", "NODE_init", "send_sys_init", "tr_17", "channel [NODE_init -> send_sys_init : default / ]")
+				/*---------------------------------------------------------*/
+
+
+
+			/** state (send_sys_init) enter executives **/
+			FSM_STATE_ENTER_FORCED (6, "send_sys_init", state6_enter_exec, "channel [send_sys_init enter execs]")
+
+			/** state (send_sys_init) exit executives **/
+			FSM_STATE_EXIT_FORCED (6, "send_sys_init", "channel [send_sys_init exit execs]")
+
+
+			/** state (send_sys_init) transition processing **/
+			FSM_TRANSIT_FORCE (1, state1_enter_exec, ;, "default", "", "send_sys_init", "idle", "tr_18", "channel [send_sys_init -> idle : default / ]")
 				/*---------------------------------------------------------*/
 
 
