@@ -1,3 +1,9 @@
 # OPNET FILES
 *.ot
 *.obj
+*.ov
+*.dll
+*.exp
+*.pdb
+*.seq
+*log_info
