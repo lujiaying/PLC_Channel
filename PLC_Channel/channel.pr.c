@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5494330A 5494330A 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5498CC19 5498CC19 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -26,6 +26,10 @@ const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 5494330A 54943
 #define PPDU_TIME_END			((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_END))			
 
 #define IMPEDANCE_UPDATE_TIME_DELTA		5
+#define IMPEDANCE_MEAN_IDLE				90
+#define IMPEDANCE_SD_IDLE				2.5
+#define IMPEDANCE_MEAN_BUSY				20
+#define IMPEDANCE_SD_BUSY				4.5
 
 /* enum */
 typedef enum NODE_TYPE_T
@@ -1046,12 +1050,8 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 			FSM_STATE_ENTER_FORCED (2, "update", state2_enter_exec, "channel [update enter execs]")
 				FSM_PROFILE_SECTION_IN ("channel [update enter execs]", state2_enter_exec)
 				{
-				double lvd_mean, lvd_std_deviation;
-				
 				/* update impedance_vector */
-				lvd_mean = 90;
-				lvd_std_deviation = 4.5;
-				impedance_vector_update(svp_impedance_vector, gvi_HE_num+gvi_CPE_num, lvd_mean, lvd_std_deviation);
+				impedance_vector_update(svp_impedance_vector, gvi_HE_num+gvi_CPE_num, IMPEDANCE_MEAN_IDLE, IMPEDANCE_SD_IDLE);
 				op_intrpt_schedule_self(op_sim_time()+IMPEDANCE_UPDATE_TIME_DELTA, INTRPT_CHANNEL_TIME_TO_UPDATE);
 				}
 				FSM_PROFILE_SECTION_OUT (state2_enter_exec)
