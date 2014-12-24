@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54991FEF 54991FEF 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549A1D86 549A1D86 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -40,13 +40,6 @@ typedef enum NODE_TYPE_T
     TYPE_X = 3,
 } NODE_TYPE_T;
 
-typedef enum PHASE_T
-{
-    PHASE_ABC = 0,
-    PHASE_A = 1,
-    PHASE_B = 2,
-    PHASE_C = 3,
-} PHASE_T;
 /* end enum */
 
 
@@ -83,15 +76,16 @@ static double pulse_noise_get(int);
 static void PPDU_sinr_segment_refresh(void);
 static void PPDU_sinr_calculate(PPDU_T *);
 static DISTANCE_PHASE_T ** topology_init(FILE *);
-static void propagation_attenuation_generate(DISTANCE_PHASE_T const **, double **, int);
-static void impedance_correlation_generate(DISTANCE_PHASE_T const **, double **, int);
-static void phase_coupling_parameter_generate(DISTANCE_PHASE_T const **, double **, int);
+static void propagation_attenuation_generate(const DISTANCE_PHASE_T **, double **, int);
+static void impedance_correlation_generate(const DISTANCE_PHASE_T **, double **, int);
+static void phase_coupling_parameter_generate(const DISTANCE_PHASE_T **, double **, int);
 static void impedance_vector_init(double *, int, double, double);
 static void impedance_vector_update(double *, int, double, double);
-static void find_NODE_Objids(Objid);
+static void NODE_Objids_find(Objid);
+static void NODE_work_phase_init(const DISTANCE_PHASE_T **);
 
 
-/* Global variables*/
+/* Global variables */
 int gvi_HE_num = 0, gvi_CPE_num = 0, gvi_NOISE_num = 0, gvi_X_num = 0, gvi_total_num = 0;
 Objid gvoid_channel;
 NODE_OBJID_T *gvoid_node_oids;
@@ -853,7 +847,7 @@ phase_coupling_coefficient_generate(const double **phase_coupling_parameter_matr
 /* Remarks:                                                 */
 /************************************************************/
 static void
-find_NODE_Objids(Objid subnet_id)
+NODE_Objids_find(Objid subnet_id)
 {
 	char lvch_NODE_name[12];
 	Objid lvoid_NODE_id;
@@ -887,6 +881,28 @@ find_NODE_Objids(Objid subnet_id)
 			gvoid_node_oids[lvi_NODE_index].node_id = lvoid_NODE_id;
 		}
 		
+	}
+	
+	FOUT;
+}
+
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2014.12.23                                  */
+/* Remarks:                                                 */
+/************************************************************/
+static void
+NODE_work_phase_init(const DISTANCE_PHASE_T **distance_phase_matrix)
+{
+	int lvi_NODE_index;
+	
+	FIN(NODE_work_phase_init());
+	
+	for (lvi_NODE_index = 0; lvi_NODE_index < gvi_HE_num+gvi_CPE_num; lvi_NODE_index++)
+	{
+		op_ima_obj_attr_set(gvoid_node_oids[lvi_NODE_index].node_id, "work_phase", distance_phase_matrix[0][lvi_NODE_index].pha_Z);
+		printf("node[%d].work_phase is %d.\n", lvi_NODE_index, distance_phase_matrix[0][lvi_NODE_index].pha_Z);
 	}
 	
 	FOUT;
@@ -1253,7 +1269,10 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				lvoid_subnet = op_topo_parent(op_topo_parent(op_id_self()));
 					
 				/* find NODE Objids */
-				find_NODE_Objids(lvoid_subnet);
+				NODE_Objids_find(lvoid_subnet);
+				
+				/* init NODE work_phase */
+				NODE_work_phase_init(svpp_distance_phase_matrix);
 				}
 				FSM_PROFILE_SECTION_OUT (state5_enter_exec)
 

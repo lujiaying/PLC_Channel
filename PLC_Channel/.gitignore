@@ -7,4 +7,6 @@
 *.pdb
 *.seq
 *.lib
+*.ef
+*.desinfo
 *log_info

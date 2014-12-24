@@ -281,7 +281,7 @@ debug_mk                                     default     FALSE
 default_site_position_cache_time_granularity env. file   0
 diag_enable                                  default     FALSE
 display_timezone_string                      default     FALSE
-duration                                     env. file   20
+duration                                     env. file   5
 edit_lock_mode                               default     FALSE
 endsim_memstats                              default     FALSE
 etrace_diff                                  default     <null>

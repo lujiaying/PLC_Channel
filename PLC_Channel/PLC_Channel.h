@@ -13,6 +13,14 @@ typedef enum INTRPT_CHANNEL_T
 	INTRPT_NOISE_POWER_UPDATE = 72,
 } INTRPT_CHANNEL_T;
 
+typedef enum PHASE_T
+{
+    PHASE_ABC = 0,
+    PHASE_A = 1,
+    PHASE_B = 2,
+    PHASE_C = 3,
+} PHASE_T;
+
 
 typedef struct PPDU_SEGMENT_SINR_T
 {
@@ -38,6 +46,7 @@ typedef struct PPDU_T
 	double start_time;
 	double end_time;
 	void *MPDU_ptr;
+	PHASE_T send_phase;
 	int PPDU_index;
 	int actual_receiver_number;
 	PPDU_SINR_T *actual_receiver_array;
