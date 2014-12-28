@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549FAE1C 549FAE1C 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549FC209 549FC209 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -71,7 +71,7 @@ typedef struct DISTANCE_PHASE_T
 /* function declare */
 static double PPDU_receive_power_calculate(int, PPDU_T *);
 static double period_noise_power_get(void);
-static double phase_coupling_coefficient_get(int, int);
+static double phase_coupling_coefficient_get(int, int, int);
 static double pulse_noise_get(int);
 //static void PHY_medium_refresh(void);
 static void PPDU_sinr_segment_refresh(void);
@@ -174,7 +174,7 @@ PPDU_receive_power_calculate(int lvi_receiver_node_index, PPDU_T *lvp_PPDU)
 	
 	lvd_impedance_ratio = svp_impedance_vector[lvi_receiver_node_index] / 75.0;
 	lvd_matchmiss_linear = 4 * lvd_impedance_ratio / pow(1+lvd_impedance_ratio, 2);
-	lvd_phase_coupling_coefficient = phase_coupling_coefficient_get(lvi_receiver_node_index, lvp_PPDU->transmitter_node_index);
+	lvd_phase_coupling_coefficient = phase_coupling_coefficient_get(lvi_receiver_node_index, lvp_PPDU->transmitter_node_index, lvp_PPDU->send_phase);
 	
 	printf("[PPDU_receive_power_calculate] ppdu_index:%d, receiver_node:%d, power:%lf mw,\n", lvp_PPDU->PPDU_index, lvi_receiver_node_index, lvp_PPDU->power_linear);  
 	printf("pathloss:%lf, mis:%lf, phase_coupling:%lf\n", lvd_pathloss_linear, lvd_matchmiss_linear, lvd_phase_coupling_coefficient);
@@ -206,25 +206,19 @@ period_noise_power_get()
 /************************************************************/
 /* Author: jiaying.lu                                       */
 /* Last Update: 2014.12.11                                  */
-/* Remarks:         				                      			  */
+/* Remarks:         				                        */
 /************************************************************/
 static double
-phase_coupling_coefficient_get(int receiver_node_index, int transmitter_node_index)
+phase_coupling_coefficient_get(int receiver_node_index, int transmitter_node_index, int work_phase_ppdu)
 {
-	Distribution *lvp_dist;
-	double lvd_phase_coupling_coefficient;
+	int lvi_receiver_work_phase;
 
 	FIN(phase_coupling_coefficient_get);
-	lvp_dist = op_dist_load("normal", svpp_phase_coupling_parameter_matrix[transmitter_node_index][receiver_node_index], 1);
-	lvd_phase_coupling_coefficient = op_dist_outcome(lvp_dist);
-	op_dist_unload(lvp_dist);
+
+	op_ima_obj_attr_get(gvoid_node_oids[receiver_node_index].node_id, "work_phase", &lvi_receiver_work_phase);
+	printf("[phase_coupling_coefficient_get] para is [transmitter_node_index=%d] [receiver_node_index=%d] [work_phase_ppdu=%d] [receiver_work_phase=%d]\n", transmitter_node_index, receiver_node_index, work_phase_ppdu, lvi_receiver_work_phase);
 	
-	if (lvd_phase_coupling_coefficient < 0)
-	{
-		lvd_phase_coupling_coefficient = 0;
-	}
-	
-	FRET(lvd_phase_coupling_coefficient);
+	FRET(svpppp_phase_coupling_coefficient_matrix[transmitter_node_index][receiver_node_index][work_phase_ppdu][lvi_receiver_work_phase]);
 }
 
 
@@ -248,7 +242,8 @@ pulse_noise_get(int receiver_node_index)
 	{
 		lvp_noise_PPDU =(PPDU_T *)prg_list_access(svlist_noise_ppdu, lvi_noise_index);
 		lvd_pathloss_linear = svpp_propagation_attenuation_matrix[lvp_noise_PPDU->transmitter_node_index][receiver_node_index];
-		pulse_noise_power_linear += lvp_noise_PPDU->power_linear * lvd_pathloss_linear * phase_coupling_coefficient_get(receiver_node_index, lvp_noise_PPDU->transmitter_node_index);
+		//pulse_noise_power_linear += lvp_noise_PPDU->power_linear * lvd_pathloss_linear * phase_coupling_coefficient_get(receiver_node_index, lvp_noise_PPDU->transmitter_node_index);
+		pulse_noise_power_linear += lvp_noise_PPDU->power_linear * lvd_pathloss_linear * 1.0;
 	}
 	
 	FRET(pulse_noise_power_linear);
@@ -942,13 +937,19 @@ static void
 NODE_work_phase_init(const DISTANCE_PHASE_T **distance_phase_matrix)
 {
 	int lvi_NODE_index;
+	int lvi_work_phase;
 	
 	FIN(NODE_work_phase_init());
 	
 	for (lvi_NODE_index = 0; lvi_NODE_index < gvi_HE_num+gvi_CPE_num; lvi_NODE_index++)
 	{
-		op_ima_obj_attr_set(gvoid_node_oids[lvi_NODE_index].node_id, "work_phase", distance_phase_matrix[0][lvi_NODE_index].pha_Z);
-		printf("node[%d].work_phase is %d.\n", lvi_NODE_index, distance_phase_matrix[0][lvi_NODE_index].pha_Z);
+		lvi_work_phase = distance_phase_matrix[0][lvi_NODE_index].pha_Z;
+		if (lvi_work_phase == 3)		//3 represent phase ABC, so randomly take A, B or C as phase
+		{
+			lvi_work_phase = floor(op_dist_uniform(WORK_PHASE_NUM));
+		}
+		op_ima_obj_attr_set(gvoid_node_oids[lvi_NODE_index].node_id, "work_phase", lvi_work_phase);
+		printf("node[%d].work_phase is %d.\n", lvi_NODE_index, lvi_work_phase);
 	}
 	
 	FOUT;

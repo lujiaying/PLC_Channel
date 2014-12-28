@@ -15,10 +15,10 @@ typedef enum INTRPT_CHANNEL_T
 
 typedef enum PHASE_T
 {
-    PHASE_ABC = 0,
-    PHASE_A = 1,
-    PHASE_B = 2,
-    PHASE_C = 3,
+	PHASE_A = 0,
+    PHASE_B = 1,
+    PHASE_C = 2,
+    PHASE_ABC = 3,
 } PHASE_T;
 
 
