@@ -1,10 +1,10 @@
-/* Process model C form file: channel.pr.c */
+/* Process model C++ form file: channel.pr.cpp */
 /* Portions of this file copyright 1986-2008 by OPNET Technologies, Inc. */
 
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549FAE1C 549FAE1C 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_cpp [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549D08CC 549D08CC 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -80,7 +80,6 @@ static DISTANCE_PHASE_T ** topology_init(FILE *);
 static void propagation_attenuation_generate(const DISTANCE_PHASE_T **, double **, int);
 static void impedance_correlation_generate(const DISTANCE_PHASE_T **, double **, int);
 static void phase_coupling_parameter_generate(const DISTANCE_PHASE_T **, double **, int);
-static void phase_coupling_coefficient_generate(const double **, double ****, int);
 static void impedance_vector_init(double *, int, double, double);
 static void impedance_vector_update(double *, int, double, double);
 static void NODE_Objids_find(Objid);
@@ -107,23 +106,48 @@ NODE_OBJID_T *gvoid_node_oids;
 
 
 /* State variable definitions */
-typedef struct
+class channel_state
 	{
-	/* Internal state tracking for FSM */
-	FSM_SYS_STATE
-	/* State Variables */
-	Prg_List *	             		svlist_channel                                  ;
-	Stathandle	             		svgstat_SINR                                    ;
-	Stathandle	             		svgstat_active_MPDU_number                      ;
-	DISTANCE_PHASE_T **	    		svpp_distance_phase_matrix                      ;
-	double **	              		svpp_propagation_attenuation_matrix             ;
-	double **	              		svpp_impedance_correlation_matrix               ;
-	double **	              		svpp_phase_coupling_parameter_matrix            ;
-	double *	               		svp_impedance_vector                            ;
-	Prg_List *	             		svlist_noise_ppdu                               ;
-	int	                    		svi_PPDU_index                                  ;
-	double ****	            		svpppp_phase_coupling_coefficient_matrix        ;
-	} channel_state;
+	private:
+		/* Internal state tracking for FSM */
+		FSM_SYS_STATE
+
+	public:
+		channel_state (void);
+
+		/* Destructor contains Termination Block */
+		~channel_state (void);
+
+		/* State Variables */
+		Prg_List *	             		svlist_channel                                  ;
+		Stathandle	             		svgstat_SINR                                    ;
+		Stathandle	             		svgstat_active_MPDU_number                      ;
+		DISTANCE_PHASE_T **	    		svpp_distance_phase_matrix                      ;
+		double **	              		svpp_propagation_attenuation_matrix             ;
+		double **	              		svpp_impedance_correlation_matrix               ;
+		double **	              		svpp_phase_coupling_parameter_matrix            ;
+		double *	               		svp_impedance_vector                            ;
+		Prg_List *	             		svlist_noise_ppdu                               ;
+		int	                    		svi_PPDU_index                                  ;
+		double ****	            		svpppp_phase_coupling_coefficient_matrix        ;
+
+		/* FSM code */
+		void channel (OP_SIM_CONTEXT_ARG_OPT);
+		/* Diagnostic Block */
+		void _op_channel_diag (OP_SIM_CONTEXT_ARG_OPT);
+
+#if defined (VOSD_NEW_BAD_ALLOC)
+		void * operator new (size_t) throw (VOSD_BAD_ALLOC);
+#else
+		void * operator new (size_t);
+#endif
+		void operator delete (void *);
+
+		/* Memory management */
+		static VosT_Obtype obtype;
+	};
+
+VosT_Obtype channel_state::obtype = (VosT_Obtype)OPC_NIL;
 
 #define svlist_channel          		op_sv_ptr->svlist_channel
 #define svgstat_SINR            		op_sv_ptr->svgstat_SINR
@@ -836,51 +860,9 @@ impedance_space_relate_generate(double const *impedance_vector, const double **i
 /*          Free phase_coupling_coefficient after calculate.*/
 /************************************************************/
 static void
-phase_coupling_coefficient_generate(const double **phase_coupling_parameter_matrix, double ****phase_coupling_coefficient_matrix, int phase_coupling_num)
+phase_coupling_coefficient_generate(const double **phase_coupling_parameter_matrix, double ****phase_coupling_coefficient_matrix, int phase_coupling_num, double std_deviation)
 {
-	int lvi_index_i, lvi_index_j, lvi_index_h, lvi_index_k;
-	Distribution *lvp_dist;
-	double lvd_phase_coupling_coefficient;
-
 	FIN(phase_coupling_coefficient_generate);
-	
-	/** phase_coupling_coefficient_matrix[][][h][k]: h,k represent work_phase
-	      0 A; 1 B; 2 C.
-	**/
-	for (lvi_index_i=0; lvi_index_i<phase_coupling_num; lvi_index_i++)
-	{
-		for (lvi_index_j=0; lvi_index_j<phase_coupling_num; lvi_index_j++)
-		{
-			lvp_dist = op_dist_load("normal", phase_coupling_parameter_matrix[lvi_index_i][lvi_index_j], 1);
-			
-			for (lvi_index_h=0; lvi_index_h<WORK_PHASE_NUM; lvi_index_h++)
-			{
-				for (lvi_index_k=0; lvi_index_k<WORK_PHASE_NUM; lvi_index_k++)
-				{
-					if (lvi_index_i == lvi_index_j)
-					{
-						lvd_phase_coupling_coefficient = 1.0;
-					}
-					else if (lvi_index_h == lvi_index_k)
-					{
-						lvd_phase_coupling_coefficient = 1.0;
-					}
-					else
-					{
-						lvd_phase_coupling_coefficient = op_dist_outcome(lvp_dist);
-						if (lvd_phase_coupling_coefficient < 0)			//phase coupling should gt 0
-						{
-							lvd_phase_coupling_coefficient = 0;
-						}
-					}
-					phase_coupling_coefficient_matrix[lvi_index_i][lvi_index_j][lvi_index_h][lvi_index_k] = lvd_phase_coupling_coefficient;
-					printf("[%d][%d][%d][%d]: %lf\n", lvi_index_i, lvi_index_j, lvi_index_h, lvi_index_k, lvd_phase_coupling_coefficient);
-				}
-			
-			}
-			op_dist_unload(lvp_dist);
-		}
-	}
 	
 	FOUT;
 }
@@ -965,20 +947,45 @@ NODE_work_phase_init(const DISTANCE_PHASE_T **distance_phase_matrix)
 #undef FOUTRET_TRACING
 #define FOUTRET_TRACING
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
-	void channel (OP_SIM_CONTEXT_ARG_OPT);
+/* Undefine shortcuts to state variables because the */
+/* following functions are part of the state class */
+#undef svlist_channel
+#undef svgstat_SINR
+#undef svgstat_active_MPDU_number
+#undef svpp_distance_phase_matrix
+#undef svpp_propagation_attenuation_matrix
+#undef svpp_impedance_correlation_matrix
+#undef svpp_phase_coupling_parameter_matrix
+#undef svp_impedance_vector
+#undef svlist_noise_ppdu
+#undef svi_PPDU_index
+#undef svpppp_phase_coupling_coefficient_matrix
+
+/* Access from C kernel using C linkage */
+extern "C"
+{
 	VosT_Obtype _op_channel_init (int * init_block_ptr);
-	void _op_channel_diag (OP_SIM_CONTEXT_ARG_OPT);
-	void _op_channel_terminate (OP_SIM_CONTEXT_ARG_OPT);
 	VosT_Address _op_channel_alloc (VosT_Obtype, int);
+	void channel (OP_SIM_CONTEXT_ARG_OPT)
+		{
+		((channel_state *)(OP_SIM_CONTEXT_PTR->_op_mod_state_ptr))->channel (OP_SIM_CONTEXT_PTR_OPT);
+		}
+
 	void _op_channel_svar (void *, const char *, void **);
 
+	void _op_channel_diag (OP_SIM_CONTEXT_ARG_OPT)
+		{
+		((channel_state *)(OP_SIM_CONTEXT_PTR->_op_mod_state_ptr))->_op_channel_diag (OP_SIM_CONTEXT_PTR_OPT);
+		}
 
-#if defined (__cplusplus)
+	void _op_channel_terminate (OP_SIM_CONTEXT_ARG_OPT)
+		{
+		/* The destructor is the Termination Block */
+		delete (channel_state *)(OP_SIM_CONTEXT_PTR->_op_mod_state_ptr);
+		}
+
+
 } /* end of 'extern "C"' */
-#endif
 
 
 
@@ -987,13 +994,13 @@ extern "C" {
 
 
 void
-channel (OP_SIM_CONTEXT_ARG_OPT)
+channel_state::channel (OP_SIM_CONTEXT_ARG_OPT)
 	{
 #if !defined (VOSD_NO_FIN)
 	int _op_block_origin = 0;
 #endif
-	FIN_MT (channel ());
-
+	FIN_MT (channel_state::channel ());
+	try
 		{
 
 
@@ -1090,7 +1097,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 						svpppp_phase_coupling_coefficient_matrix[lvi_index_i][lvi_index_j][lvi_index_k] = (double *)op_prg_mem_alloc(WORK_PHASE_NUM * sizeof(double));
 					}
 				}
-				phase_coupling_coefficient_generate(svpp_phase_coupling_parameter_matrix, svpppp_phase_coupling_coefficient_matrix, gvi_HE_num+gvi_CPE_num+gvi_NOISE_num);
+				
 				
 				
 				/* init channel PPDU list */
@@ -1377,49 +1384,44 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 
 		FSM_EXIT (0,"channel")
 		}
+	catch (...)
+		{
+		Vos_Error_Print (VOSC_ERROR_ABORT,
+			(const char *)VOSC_NIL,
+			"Unhandled C++ exception in process model (channel)",
+			(const char *)VOSC_NIL, (const char *)VOSC_NIL);
+		}
 	}
 
 
 
 
 void
-_op_channel_diag (OP_SIM_CONTEXT_ARG_OPT)
+channel_state::_op_channel_diag (OP_SIM_CONTEXT_ARG_OPT)
 	{
 	/* No Diagnostic Block */
 	}
 
-
-
-
 void
-_op_channel_terminate (OP_SIM_CONTEXT_ARG_OPT)
+channel_state::operator delete (void* ptr)
+	{
+	FIN (channel_state::operator delete (ptr));
+	Vos_Poolmem_Dealloc (ptr);
+	FOUT
+	}
+
+channel_state::~channel_state (void)
 	{
 
-	FIN_MT (_op_channel_terminate ())
+	FIN (channel_state::~channel_state ())
 
 
 	/* No Termination Block */
 
-	Vos_Poolmem_Dealloc (op_sv_ptr);
 
 	FOUT
 	}
 
-
-/* Undefine shortcuts to state variables to avoid */
-/* syntax error in direct access to fields of */
-/* local variable prs_ptr in _op_channel_svar function. */
-#undef svlist_channel
-#undef svgstat_SINR
-#undef svgstat_active_MPDU_number
-#undef svpp_distance_phase_matrix
-#undef svpp_propagation_attenuation_matrix
-#undef svpp_impedance_correlation_matrix
-#undef svpp_phase_coupling_parameter_matrix
-#undef svp_impedance_vector
-#undef svlist_noise_ppdu
-#undef svi_PPDU_index
-#undef svpppp_phase_coupling_coefficient_matrix
 
 #undef FIN_PREAMBLE_DEC
 #undef FIN_PREAMBLE_CODE
@@ -1427,36 +1429,66 @@ _op_channel_terminate (OP_SIM_CONTEXT_ARG_OPT)
 #define FIN_PREAMBLE_DEC
 #define FIN_PREAMBLE_CODE
 
+void *
+channel_state::operator new (size_t)
+#if defined (VOSD_NEW_BAD_ALLOC)
+		throw (VOSD_BAD_ALLOC)
+#endif
+	{
+	void * new_ptr;
+
+	FIN_MT (channel_state::operator new ());
+
+	new_ptr = Vos_Alloc_Object (channel_state::obtype);
+#if defined (VOSD_NEW_BAD_ALLOC)
+	if (new_ptr == VOSC_NIL) throw VOSD_BAD_ALLOC();
+#endif
+	FRET (new_ptr)
+	}
+
+/* State constructor initializes FSM handling */
+/* by setting the initial state to the first */
+/* block of code to enter. */
+
+channel_state::channel_state (void) :
+		_op_current_block (0)
+	{
+#if defined (OPD_ALLOW_ODB)
+		_op_current_state = "channel [init enter execs]";
+#endif
+	}
+
 VosT_Obtype
 _op_channel_init (int * init_block_ptr)
 	{
-	VosT_Obtype obtype = OPC_NIL;
 	FIN_MT (_op_channel_init (init_block_ptr))
 
-	obtype = Vos_Define_Object_Prstate ("proc state vars (channel)",
+	channel_state::obtype = Vos_Define_Object_Prstate ("proc state vars (channel)",
 		sizeof (channel_state));
 	*init_block_ptr = 0;
 
-	FRET (obtype)
+	FRET (channel_state::obtype)
 	}
 
 VosT_Address
-_op_channel_alloc (VosT_Obtype obtype, int init_block)
+_op_channel_alloc (VosT_Obtype, int)
 	{
 #if !defined (VOSD_NO_FIN)
 	int _op_block_origin = 0;
 #endif
 	channel_state * ptr;
-	FIN_MT (_op_channel_alloc (obtype))
+	FIN_MT (_op_channel_alloc ())
 
-	ptr = (channel_state *)Vos_Alloc_Object (obtype);
-	if (ptr != OPC_NIL)
-		{
-		ptr->_op_current_block = init_block;
-#if defined (OPD_ALLOW_ODB)
-		ptr->_op_current_state = "channel [init enter execs]";
+	/* New instance will have FSM handling initialized */
+#if defined (VOSD_NEW_BAD_ALLOC)
+	try {
+		ptr = new channel_state;
+	} catch (const VOSD_BAD_ALLOC &) {
+		ptr = VOSC_NIL;
+	}
+#else
+	ptr = new channel_state;
 #endif
-		}
 	FRET ((VosT_Address)ptr)
 	}
 
