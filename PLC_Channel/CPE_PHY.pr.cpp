@@ -1,10 +1,10 @@
-/* Process model C form file: CPE_PHY.pr.c */
+/* Process model C++ form file: CPE_PHY.pr.cpp */
 /* Portions of this file copyright 1986-2008 by OPNET Technologies, Inc. */
 
 
 
 /* This variable carries the header into the object file */
-const char CPE_PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549FCCAC 549FCCAC 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char CPE_PHY_pr_cpp [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549FF5C4 549FF5C4 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -18,6 +18,7 @@ const char CPE_PHY_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549FCCAC 549FC
 
 #include "PLC_def.h"
 #include "PLC_Channel.h"
+#include "PLC_func.h"
 
 #define SYS_INITED			((op_intrpt_type() == OPC_INTRPT_MCAST) && (op_intrpt_code() == INTRPT_SYS_INIT))
 #define PPDU_TIME_START		((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
@@ -48,16 +49,41 @@ static int self_index_find(Objid);
 
 
 /* State variable definitions */
-typedef struct
+class CPE_PHY_state
 	{
-	/* Internal state tracking for FSM */
-	FSM_SYS_STATE
-	/* State Variables */
-	Distribution *	         		svp_exp_dist                                    ;
-	Distribution *	         		svp_normal_dist                                 ;
-	int	                    		svi_node_index                                  ;
-	PHASE_T	                		sve_work_phase                                  ;
-	} CPE_PHY_state;
+	private:
+		/* Internal state tracking for FSM */
+		FSM_SYS_STATE
+
+	public:
+		CPE_PHY_state (void);
+
+		/* Destructor contains Termination Block */
+		~CPE_PHY_state (void);
+
+		/* State Variables */
+		Distribution *	         		svp_exp_dist                                    ;
+		Distribution *	         		svp_normal_dist                                 ;
+		int	                    		svi_node_index                                  ;
+		PHASE_T	                		sve_work_phase                                  ;
+
+		/* FSM code */
+		void CPE_PHY (OP_SIM_CONTEXT_ARG_OPT);
+		/* Diagnostic Block */
+		void _op_CPE_PHY_diag (OP_SIM_CONTEXT_ARG_OPT);
+
+#if defined (VOSD_NEW_BAD_ALLOC)
+		void * operator new (size_t) throw (VOSD_BAD_ALLOC);
+#else
+		void * operator new (size_t);
+#endif
+		void operator delete (void *);
+
+		/* Memory management */
+		static VosT_Obtype obtype;
+	};
+
+VosT_Obtype CPE_PHY_state::obtype = (VosT_Obtype)OPC_NIL;
 
 #define svp_exp_dist            		op_sv_ptr->svp_exp_dist
 #define svp_normal_dist         		op_sv_ptr->svp_normal_dist
@@ -103,33 +129,6 @@ PPDU_attr_set(PPDU_T *ppdu)
 	FOUT;
 }
 
-/************************************************************/
-/* Author: jiaying.lu                                       */
-/* Last Update: 2014.12.23                                  */
-/* Remarks:        											*/
-/************************************************************/
-static int
-self_index_find(Objid node_id)
-{
-	int lvi_node_index;
-	
-	//Consider this func as a global func. 
-	//PHY, MAC, TRAFFIC, MAC_CONTROL can use this func.
-	FIN(self_index_find());
-	
-	for (lvi_node_index = 0; lvi_node_index < gvi_HE_num+gvi_CPE_num+gvi_NOISE_num; lvi_node_index++)
-	{
-		if (gvoid_node_oids[lvi_node_index].node_id == node_id)
-		{
-			FRET(lvi_node_index);
-		}
-	}
-	
-		op_sim_end("Error: NODE index can't be found!", "Error source module: PHY", "Error source function: self_index_find()", "");
-		
-	FRET(-1);
-}
-
 /* End of Function Block */
 
 /* Undefine optional tracing in FIN/FOUT/FRET */
@@ -141,20 +140,38 @@ self_index_find(Objid node_id)
 #undef FOUTRET_TRACING
 #define FOUTRET_TRACING
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
-	void CPE_PHY (OP_SIM_CONTEXT_ARG_OPT);
+/* Undefine shortcuts to state variables because the */
+/* following functions are part of the state class */
+#undef svp_exp_dist
+#undef svp_normal_dist
+#undef svi_node_index
+#undef sve_work_phase
+
+/* Access from C kernel using C linkage */
+extern "C"
+{
 	VosT_Obtype _op_CPE_PHY_init (int * init_block_ptr);
-	void _op_CPE_PHY_diag (OP_SIM_CONTEXT_ARG_OPT);
-	void _op_CPE_PHY_terminate (OP_SIM_CONTEXT_ARG_OPT);
 	VosT_Address _op_CPE_PHY_alloc (VosT_Obtype, int);
+	void CPE_PHY (OP_SIM_CONTEXT_ARG_OPT)
+		{
+		((CPE_PHY_state *)(OP_SIM_CONTEXT_PTR->_op_mod_state_ptr))->CPE_PHY (OP_SIM_CONTEXT_PTR_OPT);
+		}
+
 	void _op_CPE_PHY_svar (void *, const char *, void **);
 
+	void _op_CPE_PHY_diag (OP_SIM_CONTEXT_ARG_OPT)
+		{
+		((CPE_PHY_state *)(OP_SIM_CONTEXT_PTR->_op_mod_state_ptr))->_op_CPE_PHY_diag (OP_SIM_CONTEXT_PTR_OPT);
+		}
 
-#if defined (__cplusplus)
+	void _op_CPE_PHY_terminate (OP_SIM_CONTEXT_ARG_OPT)
+		{
+		/* The destructor is the Termination Block */
+		delete (CPE_PHY_state *)(OP_SIM_CONTEXT_PTR->_op_mod_state_ptr);
+		}
+
+
 } /* end of 'extern "C"' */
-#endif
 
 
 
@@ -163,13 +180,13 @@ extern "C" {
 
 
 void
-CPE_PHY (OP_SIM_CONTEXT_ARG_OPT)
+CPE_PHY_state::CPE_PHY (OP_SIM_CONTEXT_ARG_OPT)
 	{
 #if !defined (VOSD_NO_FIN)
 	int _op_block_origin = 0;
 #endif
-	FIN_MT (CPE_PHY ());
-
+	FIN_MT (CPE_PHY_state::CPE_PHY ());
+	try
 		{
 
 
@@ -190,7 +207,7 @@ CPE_PHY (OP_SIM_CONTEXT_ARG_OPT)
 				
 				
 				/* find self index */
-				svi_node_index = self_index_find(lvoid_NODE_id);
+				svi_node_index = _global_self_index_find(lvoid_NODE_id);
 				/* set PHY Objid */
 				gvoid_node_oids[svi_node_index].phy_id = op_id_self();
 				/* get work phase */
@@ -382,42 +399,44 @@ CPE_PHY (OP_SIM_CONTEXT_ARG_OPT)
 
 		FSM_EXIT (4,"CPE_PHY")
 		}
+	catch (...)
+		{
+		Vos_Error_Print (VOSC_ERROR_ABORT,
+			(const char *)VOSC_NIL,
+			"Unhandled C++ exception in process model (CPE_PHY)",
+			(const char *)VOSC_NIL, (const char *)VOSC_NIL);
+		}
 	}
 
 
 
 
 void
-_op_CPE_PHY_diag (OP_SIM_CONTEXT_ARG_OPT)
+CPE_PHY_state::_op_CPE_PHY_diag (OP_SIM_CONTEXT_ARG_OPT)
 	{
 	/* No Diagnostic Block */
 	}
 
-
-
-
 void
-_op_CPE_PHY_terminate (OP_SIM_CONTEXT_ARG_OPT)
+CPE_PHY_state::operator delete (void* ptr)
+	{
+	FIN (CPE_PHY_state::operator delete (ptr));
+	Vos_Poolmem_Dealloc (ptr);
+	FOUT
+	}
+
+CPE_PHY_state::~CPE_PHY_state (void)
 	{
 
-	FIN_MT (_op_CPE_PHY_terminate ())
+	FIN (CPE_PHY_state::~CPE_PHY_state ())
 
 
 	/* No Termination Block */
 
-	Vos_Poolmem_Dealloc (op_sv_ptr);
 
 	FOUT
 	}
 
-
-/* Undefine shortcuts to state variables to avoid */
-/* syntax error in direct access to fields of */
-/* local variable prs_ptr in _op_CPE_PHY_svar function. */
-#undef svp_exp_dist
-#undef svp_normal_dist
-#undef svi_node_index
-#undef sve_work_phase
 
 #undef FIN_PREAMBLE_DEC
 #undef FIN_PREAMBLE_CODE
@@ -425,36 +444,66 @@ _op_CPE_PHY_terminate (OP_SIM_CONTEXT_ARG_OPT)
 #define FIN_PREAMBLE_DEC
 #define FIN_PREAMBLE_CODE
 
+void *
+CPE_PHY_state::operator new (size_t)
+#if defined (VOSD_NEW_BAD_ALLOC)
+		throw (VOSD_BAD_ALLOC)
+#endif
+	{
+	void * new_ptr;
+
+	FIN_MT (CPE_PHY_state::operator new ());
+
+	new_ptr = Vos_Alloc_Object (CPE_PHY_state::obtype);
+#if defined (VOSD_NEW_BAD_ALLOC)
+	if (new_ptr == VOSC_NIL) throw VOSD_BAD_ALLOC();
+#endif
+	FRET (new_ptr)
+	}
+
+/* State constructor initializes FSM handling */
+/* by setting the initial state to the first */
+/* block of code to enter. */
+
+CPE_PHY_state::CPE_PHY_state (void) :
+		_op_current_block (8)
+	{
+#if defined (OPD_ALLOW_ODB)
+		_op_current_state = "CPE_PHY [wait_sys_inited enter execs]";
+#endif
+	}
+
 VosT_Obtype
 _op_CPE_PHY_init (int * init_block_ptr)
 	{
-	VosT_Obtype obtype = OPC_NIL;
 	FIN_MT (_op_CPE_PHY_init (init_block_ptr))
 
-	obtype = Vos_Define_Object_Prstate ("proc state vars (CPE_PHY)",
+	CPE_PHY_state::obtype = Vos_Define_Object_Prstate ("proc state vars (CPE_PHY)",
 		sizeof (CPE_PHY_state));
 	*init_block_ptr = 8;
 
-	FRET (obtype)
+	FRET (CPE_PHY_state::obtype)
 	}
 
 VosT_Address
-_op_CPE_PHY_alloc (VosT_Obtype obtype, int init_block)
+_op_CPE_PHY_alloc (VosT_Obtype, int)
 	{
 #if !defined (VOSD_NO_FIN)
 	int _op_block_origin = 0;
 #endif
 	CPE_PHY_state * ptr;
-	FIN_MT (_op_CPE_PHY_alloc (obtype))
+	FIN_MT (_op_CPE_PHY_alloc ())
 
-	ptr = (CPE_PHY_state *)Vos_Alloc_Object (obtype);
-	if (ptr != OPC_NIL)
-		{
-		ptr->_op_current_block = init_block;
-#if defined (OPD_ALLOW_ODB)
-		ptr->_op_current_state = "CPE_PHY [wait_sys_inited enter execs]";
+	/* New instance will have FSM handling initialized */
+#if defined (VOSD_NEW_BAD_ALLOC)
+	try {
+		ptr = new CPE_PHY_state;
+	} catch (const VOSD_BAD_ALLOC &) {
+		ptr = VOSC_NIL;
+	}
+#else
+	ptr = new CPE_PHY_state;
 #endif
-		}
 	FRET ((VosT_Address)ptr)
 	}
 

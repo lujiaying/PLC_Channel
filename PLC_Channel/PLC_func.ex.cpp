@@ -8,59 +8,6 @@
 #include "PLC_def.h"
 #include "PLC_data.h"
 #include "PLC_func.h"
-
-/************************************************************/
-/* Author: Li Yong                                      	*/
-/* Last Update: 2014.07.21                                  */
-/* Remarks:                                             	*/
-/************************************************************/
-int
-_global_HE_index(Objid lvoid_HE_id)
-{
-	int lvi_HE_index;
-	
-	FIN(_global_HE_index(lvoid_HE_id));
-	
-	for (lvi_HE_index = 0; lvi_HE_index < gvi_HE_number; lvi_HE_index++)
-	{
-		if (gvo_HE_property[lvi_HE_index].node_id == lvoid_HE_id)
-		{
-			FRET(lvi_HE_index);
-		}
-	}
-	
-	op_sim_end("Error: HE index can't be found!", "Error source module: PLC_func", "Error source function: _global_HE_index()", "");
-
-	FRET(-1);
-}
-
-
-/************************************************************/
-/* Author: Li Yong                                      	*/
-/* Last Update: 2014.07.21                                  */
-/* Remarks:                                             	*/
-/************************************************************/
-int
-_global_CPE_index(Objid lvoid_CPE_id)
-{
-	int lvi_CPE_index;
-	
-	FIN(_global_CPE_index(lvoid_CPE_id));
-	
-	for (lvi_CPE_index = 0; lvi_CPE_index < gvi_CPE_number; lvi_CPE_index++)
-	{
-		if (gvo_CPE_property[lvi_CPE_index].node_id == lvoid_CPE_id)
-		{
-			FRET(lvi_CPE_index);
-		}
-	}
-	
-	op_sim_end("Error: CPE index can't be found!", "Error source module: PLC_func", "Error source function: _global_CPE_index()", "");
-
-	FRET(-1);
-}
-
-
 /************************************************************/
 /* Author: Li Yong                                      	*/
 /* Last Update: 2014.07.21                                  */
@@ -163,3 +110,31 @@ _global_BLER_draw(double lvd_BLER)
 		FRET(OPC_TRUE); 
 	}	
 }	
+
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2014.12.28                                  */
+/* Remarks:        											*/
+/************************************************************/
+int
+_global_self_index_find(Objid node_id)
+{
+	int lvi_node_index;
+	
+	//Consider this func as a global func. 
+	//PHY, MAC, TRAFFIC, MAC_CONTROL can use this func.
+	FIN(self_index_find());
+	
+	for (lvi_node_index = 0; lvi_node_index < gvi_HE_num+gvi_CPE_num+gvi_NOISE_num; lvi_node_index++)
+	{
+		if (gvoid_node_oids[lvi_node_index].node_id == node_id)
+		{
+			FRET(lvi_node_index);
+		}
+	}
+	
+		op_sim_end("Error: NODE index can't be found!", "Error source module: PHY", "Error source function: self_index_find()", "");
+		
+	FRET(-1);
+}

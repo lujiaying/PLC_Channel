@@ -7,6 +7,7 @@
 
 #include "PLC_def.h"
 #include "PLC_data.h"
+#include "PLC_Channel.h"
 
 #ifndef _PLC_FUNC
 #define _PLC_FUNC
@@ -19,5 +20,8 @@ Boolean _global_BLER_random_draw(double);
 void _global_MPDU_destroy(MPDU_T *);
 double _global_MPDU_duration_calculate(MPDU_T *);
 int _global_MPDU_verify(MPDU_T *, int);
+
+/* add by jiaying.lu */
+int _global_self_index_find(Objid node_id);
 
 #endif

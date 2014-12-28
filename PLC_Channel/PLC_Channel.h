@@ -3,6 +3,7 @@
 #ifndef _PLC_CHANNEL
 #define _PLC_CHANNEL
 
+/* enum */
 typedef enum INTRPT_CHANNEL_T
 {
 	INTRPT_CHANNEL_INITED = 31,
@@ -21,7 +22,15 @@ typedef enum PHASE_T
     PHASE_ABC = 3,
 } PHASE_T;
 
+typedef enum PPDU_TYPE_T
+{
+	PPDU_TYPE_DATA = 0,
+	PPDU_TYPE_CONTROL = 1,
+	PPDU_TYPE_NOISE = 3,
+} PPDU_TYPE_T;
 
+
+/* struct */
 typedef struct PPDU_SEGMENT_SINR_T
 {
 	double segment_start_time;
@@ -58,7 +67,9 @@ typedef struct NODE_OBJID_T
 	Objid phy_id;
 } NODE_OBJID_T;
 
-extern Objid gvoid_channel, gvoid_noise_generater, gvoid_PHY;
+/* global var */
+//extern Objid gvoid_channel, gvoid_noise_generater, gvoid_PHY;
+extern Objid gvoid_channel;
 extern int gvi_HE_num, gvi_CPE_num, gvi_NOISE_num, gvi_X_num, gvi_total_num;
 extern NODE_OBJID_T *gvoid_node_oids;
 

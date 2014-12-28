@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549FC209 549FC209 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_c [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549FF28B 549FF28B 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -897,7 +897,7 @@ NODE_Objids_find(Objid subnet_id)
 
 	FIN(find_NODE_Objids());
 	
-	for (lvi_NODE_index = 0; lvi_NODE_index < gvi_HE_num+gvi_CPE_num; lvi_NODE_index++)
+	for (lvi_NODE_index = 0; lvi_NODE_index < gvi_HE_num+gvi_CPE_num+gvi_NOISE_num; lvi_NODE_index++)
 	{
 		/* Objid node_id */
 		memset(lvch_NODE_name, 0, 12);
@@ -905,9 +905,13 @@ NODE_Objids_find(Objid subnet_id)
 		{
 			sprintf(lvch_NODE_name, "HE_%d", lvi_NODE_index);
 		}
-		else
+		else if(lvi_NODE_index < gvi_HE_num+gvi_CPE_num)
 		{
 			sprintf(lvch_NODE_name, "CPE_%d", lvi_NODE_index-gvi_HE_num);
+		}
+		else
+		{
+			sprintf(lvch_NODE_name, "NOISE_%d", lvi_NODE_index-gvi_HE_num-gvi_CPE_num);
 		}
 		
 		lvoid_NODE_id = op_id_from_name(subnet_id, OPC_OBJTYPE_NDFIX, lvch_NODE_name);
@@ -941,7 +945,7 @@ NODE_work_phase_init(const DISTANCE_PHASE_T **distance_phase_matrix)
 	
 	FIN(NODE_work_phase_init());
 	
-	for (lvi_NODE_index = 0; lvi_NODE_index < gvi_HE_num+gvi_CPE_num; lvi_NODE_index++)
+	for (lvi_NODE_index = 0; lvi_NODE_index < gvi_HE_num+gvi_CPE_num+gvi_NOISE_num; lvi_NODE_index++)
 	{
 		lvi_work_phase = distance_phase_matrix[0][lvi_NODE_index].pha_Z;
 		if (lvi_work_phase == 3)		//3 represent phase ABC, so randomly take A, B or C as phase
@@ -1212,12 +1216,12 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				
 				/* receive PPDU */
 				lvp_ici = op_intrpt_ici();
-				op_ici_attr_get_ptr(lvp_ici, "PPDU_ptr", &lvp_PPDU);
+				op_ici_attr_get_ptr(lvp_ici, "PPDU_ptr", (void **)&lvp_PPDU);
 				op_ici_destroy(lvp_ici);
 				lvp_ici = OPC_NIL;
 				printf("[channel.receive_PPDU] type=%d, start_time=%lf, end_time=%lf\n", lvp_PPDU->type, lvp_PPDU->start_time, lvp_PPDU->end_time);
 				
-				if (lvp_PPDU->type < 3)
+				if (lvp_PPDU->type != PPDU_TYPE_NOISE)
 				{
 					/* insert PPDU to channel list */
 					prg_list_insert(svlist_channel, lvp_PPDU, PRGC_LISTPOS_TAIL);
@@ -1340,7 +1344,7 @@ channel (OP_SIM_CONTEXT_ARG_OPT)
 				NODE_Objids_find(lvoid_subnet);
 				
 				/* init NODE work_phase */
-				NODE_work_phase_init(svpp_distance_phase_matrix);
+				NODE_work_phase_init((const DISTANCE_PHASE_T **)svpp_distance_phase_matrix);
 				}
 				FSM_PROFILE_SECTION_OUT (state5_enter_exec)
 
