@@ -13,6 +13,7 @@
 "parallel_sim.event_execution_time_window":	"0"
 "parallel_sim.mem_balance_interval":	"100000"
 "parallel_sim.num_processors":	"1"
+"probe":	"PLC_Channel-dev"
 "realtime_ratio":	"0"
 "seed":	"128"
 "sim_packet_sharing":	"conservative"

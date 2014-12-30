@@ -340,7 +340,7 @@ ov_mem_size                                  default     16
 parallel_sim.event_execution_time_window     env. file   0
 parallel_sim.mutex_rank_ignore               default     FALSE
 per_module_random_stream                     default     FALSE
-probe                                        default     <null>
+probe                                        env. file   PLC_Channel-dev
 probe_error_enable                           default     FALSE
 probe_start_time                             default     -1
 probe_stop_time                              default     -1

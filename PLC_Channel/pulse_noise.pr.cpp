@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char pulse_noise_pr_cpp [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549FF6C9 549FF6C9 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char pulse_noise_pr_cpp [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54A1FE63 54A1FE63 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -66,6 +66,7 @@ class pulse_noise_state
 		PHASE_T	                		sve_work_phase                                  ;
 		Distribution *	         		svp_normal_dist                                 ;
 		Distribution *	         		svp_exp_dist                                    ;
+		Stathandle	             		svstat_power                                    ;
 
 		/* FSM code */
 		void pulse_noise (OP_SIM_CONTEXT_ARG_OPT);
@@ -92,6 +93,7 @@ VosT_Obtype pulse_noise_state::obtype = (VosT_Obtype)OPC_NIL;
 #define sve_work_phase          		op_sv_ptr->sve_work_phase
 #define svp_normal_dist         		op_sv_ptr->svp_normal_dist
 #define svp_exp_dist            		op_sv_ptr->svp_exp_dist
+#define svstat_power            		op_sv_ptr->svstat_power
 
 /* These macro definitions will define a local variable called	*/
 /* "op_sv_ptr" in each function containing a FIN statement.	*/
@@ -156,6 +158,7 @@ PPDU_attr_set(PPDU_T *ppdu)
 #undef sve_work_phase
 #undef svp_normal_dist
 #undef svp_exp_dist
+#undef svstat_power
 
 /* Access from C kernel using C linkage */
 extern "C"
@@ -210,13 +213,13 @@ pulse_noise_state::pulse_noise (OP_SIM_CONTEXT_ARG_OPT)
 				FSM_PROFILE_SECTION_IN ("pulse_noise [init enter execs]", state0_enter_exec)
 				{
 				Ici *lvp_ici;
-				Distribution *lvp_exp_dist;
 				double lvd_pulse_time;
 				Objid lvoid_NODE_id = op_topo_parent(op_id_self());
 				
 				svp_normal_dist = op_dist_load("normal", NOISE_POWER_MEAN, 1);    // 0.006 mw = -22dBm
 				svp_exp_dist = op_dist_load("exponential", NOISE_PULSE_TIME_DELTA, 0);
 				
+				svstat_power = op_stat_reg("NOISE PHY.Pulse Noise Power (dBm)", OPC_STAT_INDEX_NONE, OPC_STAT_LOCAL);
 				
 				/* find self index */
 				svi_node_index = _global_self_index_find(lvoid_NODE_id);
@@ -224,7 +227,7 @@ pulse_noise_state::pulse_noise (OP_SIM_CONTEXT_ARG_OPT)
 				gvoid_node_oids[svi_node_index].phy_id = op_id_self();
 				/* get work phase */
 				op_ima_obj_attr_get(lvoid_NODE_id, "work_phase", &sve_work_phase);
-				printf("[PHY.init] NODE index:%d, work_phase:%d\n", svi_node_index, sve_work_phase);
+				printf("[pulse_noise.init] NODE index:%d, work_phase:%d\n", svi_node_index, sve_work_phase);
 				
 				/* send noise PPDU to Channel */
 				lvp_ici = op_ici_create("PPDU");
@@ -238,11 +241,9 @@ pulse_noise_state::pulse_noise (OP_SIM_CONTEXT_ARG_OPT)
 				
 				
 				/* schedule first pulse */
-				lvp_exp_dist = op_dist_load("exponential", 1, 0);
-				lvd_pulse_time = op_dist_outcome(lvp_exp_dist);
+				lvd_pulse_time = op_dist_outcome(svp_exp_dist);
 				printf("current time:%lf, first pulse time: %lf\n", op_sim_time(), op_sim_time()+lvd_pulse_time);
 				op_intrpt_schedule_self(op_sim_time()+lvd_pulse_time, INTRPT_NOISE_PULSE_START);
-				op_dist_unload(lvp_exp_dist);
 				}
 				FSM_PROFILE_SECTION_OUT (state0_enter_exec)
 
@@ -314,6 +315,7 @@ pulse_noise_state::pulse_noise (OP_SIM_CONTEXT_ARG_OPT)
 				/* update noise power */
 				svp_ppdu->power_linear = exp((svd_pulse_start_time-op_sim_time())/NOISE_POWER_UPDATE_PARA) * svd_pulse_start_power;
 				//printf("[noise %d] current time:%lf, update pulse power: %lf\n", svi_node_index, op_sim_time(), svp_ppdu->power_linear);
+				op_stat_write(svstat_power, 10*log10(svp_ppdu->power_linear));
 				
 				/* schedule next noise power update */
 				// after 20ms, power drop to 0.
@@ -348,6 +350,7 @@ pulse_noise_state::pulse_noise (OP_SIM_CONTEXT_ARG_OPT)
 				svp_ppdu->power_linear = op_dist_outcome(svp_normal_dist);
 				svd_pulse_start_power = svp_ppdu->power_linear;
 				printf("[node %d] start pulse power: %lf\n", svi_node_index, svp_ppdu->power_linear);
+				op_stat_write(svstat_power, 10*log10(svp_ppdu->power_linear));
 				
 				
 				/* schedule noise power update */
@@ -566,6 +569,11 @@ _op_pulse_noise_svar (void * gen_ptr, const char * var_name, void ** var_p_ptr)
 	if (strcmp ("svp_exp_dist" , var_name) == 0)
 		{
 		*var_p_ptr = (void *) (&prs_ptr->svp_exp_dist);
+		FOUT
+		}
+	if (strcmp ("svstat_power" , var_name) == 0)
+		{
+		*var_p_ptr = (void *) (&prs_ptr->svstat_power);
 		FOUT
 		}
 	*var_p_ptr = (void *)OPC_NIL;
