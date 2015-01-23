@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_cpp [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549FF838 549FF838 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_cpp [] = "MIL_3_Tfile_Hdr_ 145A 30A op_runsim 7 54C1CAC3 54C1CAC3 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                             ";
 #include <string.h>
 
 
@@ -20,6 +20,9 @@ const char channel_pr_cpp [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549FF838 549
 //#include "PLC_data.h"
 #include "PLC_func.h"
 #include "PLC_Channel.h"
+#include <vector>
+
+using std::vector;
 
 #define TIME_TO_UPDATE			((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_TIME_TO_UPDATE))
 #define PPDU_START				((op_intrpt_type() == OPC_INTRPT_REMOTE) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
@@ -85,6 +88,8 @@ static void impedance_vector_init(double *, int, double, double);
 static void impedance_vector_update(double *, int, double, double);
 static void NODE_Objids_find(Objid);
 static void NODE_work_phase_init(const DISTANCE_PHASE_T **);
+static int power_on_nodes_num_get(int);
+static void actual_receiver_array_init(PPDU_SINR_T *, int, int, int);
 
 
 /* End of Header Block */
@@ -367,6 +372,7 @@ PPDU_sinr_segment_refresh()
 		lvp_PPDU_1 = (PPDU_T *)op_prg_list_access(svlist_channel, lvi_PPDU_index_1);
 		
 		lvi_actual_receiver_number = lvp_PPDU_1->actual_receiver_number;
+		printf("actual_receiver_number=%d\n", lvi_actual_receiver_number);
 		/* calculate for each actual receiver of each PPDU */
 		for (lvi_actual_receiver_index = 0; lvi_actual_receiver_index < lvi_actual_receiver_number; lvi_actual_receiver_index++)
 		{
@@ -403,7 +409,9 @@ PPDU_sinr_segment_refresh()
 			lvp_segment_sinr->segment_sinr_dB = 10.0 *log10(lvd_sinr_linear);
 			lvp_segment_sinr->segment_start_time = op_sim_time();
 			printf("!!!!!! [PPDU_sinr_segment_refresh] receiver_index:%d, lvd_sinr_linear:%lf, segmeng_sinr_dB:%lf\n", lvp_PPDU_1->actual_receiver_array[lvi_actual_receiver_index].actual_receiver_node_index, lvd_sinr_linear, lvp_segment_sinr->segment_sinr_dB);
-			op_prg_list_insert(lvp_PPDU_1->actual_receiver_array[lvi_actual_receiver_index].segment_sinr, lvp_segment_sinr, OPC_LISTPOS_TAIL);
+			//printf("segment_sinr size:%d\n", prg_list_size(lvp_PPDU_1->actual_receiver_array[lvi_actual_receiver_index].segment_sinr));
+			op_prg_list_insert(lvp_PPDU_1->actual_receiver_array[lvi_actual_receiver_index].segment_sinr, lvp_segment_sinr, PRGC_LISTPOS_TAIL);
+			//printf("GO here\n");
 		}
 	}
 	
@@ -551,17 +559,17 @@ topology_init(FILE *fin)
 	lvpp_rlist = (Prg_List **)op_prg_mem_alloc(lvi_total_num * sizeof(Prg_List *));
 	for (lvi_index_i=0; lvi_index_i<lvi_total_num; lvi_index_i++)
 	{
-		lvpp_rlist[lvi_index_i] = prg_list_create();
-		prg_list_insert(lvpp_rlist[lvi_index_i], &(lvp_node[lvi_index_i].node_id), PRGC_LISTPOS_TAIL);
-		lvp_tmp_id = (int *)prg_list_access(lvpp_rlist[lvi_index_i], PRGC_LISTPOS_TAIL);
+		lvpp_rlist[lvi_index_i] = op_prg_list_create();
+		op_prg_list_insert(lvpp_rlist[lvi_index_i], &(lvp_node[lvi_index_i].node_id), PRGC_LISTPOS_TAIL);
+		lvp_tmp_id = (int *)op_prg_list_access(lvpp_rlist[lvi_index_i], PRGC_LISTPOS_TAIL);
 		printf("rlist[%d]: %d", lvi_index_i, *lvp_tmp_id);
 		while (*lvp_tmp_id != 0)
 		{
-			prg_list_insert(lvpp_rlist[lvi_index_i], &(lvp_node[*lvp_tmp_id].parent_id), PRGC_LISTPOS_TAIL);
-			lvp_tmp_id = (int *)prg_list_access(lvpp_rlist[lvi_index_i], PRGC_LISTPOS_TAIL);
+			op_prg_list_insert(lvpp_rlist[lvi_index_i], &(lvp_node[*lvp_tmp_id].parent_id), PRGC_LISTPOS_TAIL);
+			lvp_tmp_id = (int *)op_prg_list_access(lvpp_rlist[lvi_index_i], PRGC_LISTPOS_TAIL);
 			printf("->%d", *lvp_tmp_id);
 		}
-		printf(" (len:%d)\n", prg_list_size(lvpp_rlist[lvi_index_i]));
+		printf(" (len:%d)\n", op_prg_list_size(lvpp_rlist[lvi_index_i]));
 	}
 	
 	svpp_distance_phase_matrix = (DISTANCE_PHASE_T **)op_prg_mem_alloc(lvi_total_num * sizeof(DISTANCE_PHASE_T **));
@@ -979,6 +987,78 @@ NODE_work_phase_init(const DISTANCE_PHASE_T **distance_phase_matrix)
 	FOUT;
 }
 
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2015.01.20                                  */
+/* Remarks: Get all power on nids, except transmitr nid     */
+/************************************************************/
+static int
+power_on_nodes_num_get(int transmit_node_index)
+{
+	int lvi_NODE_index;
+	int lvi_power_on_nodes_num;
+	int lvi_NODE_power_on_flag;
+	
+	FIN(power_on_nodes_num_get());
+	
+	lvi_power_on_nodes_num = 0;
+	for (lvi_NODE_index = 0; lvi_NODE_index < gvi_HE_num+gvi_CPE_num; lvi_NODE_index++) {
+		if (lvi_NODE_index != transmit_node_index) {
+			op_ima_obj_attr_get(gvoid_node_oids[lvi_NODE_index].node_id, "power_on", &lvi_NODE_power_on_flag);
+			if (lvi_NODE_power_on_flag == NODE_POWER_ON_FLAG) {
+				lvi_power_on_nodes_num ++;
+			}
+		}
+	}
+		
+	FRET(lvi_power_on_nodes_num);
+}
+
+/************************************************************/
+/* Author: jiaying.lu                                       */
+/* Last Update: 2015.01.20                                  */
+/* Remarks: 										        */
+/************************************************************/
+static void
+actual_receiver_array_init(PPDU_SINR_T * actual_receiver_array, int actual_receiver_number, int transmit_node_index, int receiver_node_index)
+{
+	int lvi_NODE_index;
+	int lvi_power_on_nodes_num;
+	int lvi_NODE_power_on_flag;
+	char lvc_error_msg[40];
+
+	FIN(actual_receiver_array_init());
+	
+	if (actual_receiver_number == 1) {
+		lvi_power_on_nodes_num = 1;
+		actual_receiver_array[0].actual_receiver_node_index = receiver_node_index;
+		actual_receiver_array[0].segment_sinr = op_prg_list_create();
+		actual_receiver_array[0].PPDU_sinr_dB = 0;
+	}
+	else {
+		lvi_power_on_nodes_num = 0;
+		for (lvi_NODE_index = 0; lvi_NODE_index < gvi_HE_num+gvi_CPE_num; lvi_NODE_index++) {
+			if (lvi_NODE_index != transmit_node_index) {
+				op_ima_obj_attr_get(gvoid_node_oids[lvi_NODE_index].node_id, "power_on", &lvi_NODE_power_on_flag);
+				if (lvi_NODE_power_on_flag == NODE_POWER_ON_FLAG) {
+					actual_receiver_array[lvi_power_on_nodes_num].actual_receiver_node_index = lvi_NODE_index;
+						actual_receiver_array[lvi_power_on_nodes_num].segment_sinr = op_prg_list_create();
+						actual_receiver_array[lvi_power_on_nodes_num].PPDU_sinr_dB = 0;
+					lvi_power_on_nodes_num ++;
+				}
+			}
+		}
+	}
+
+	if (lvi_power_on_nodes_num != actual_receiver_number) {
+		sprintf(lvc_error_msg, "array length:%d, current power_on nodes num:%d.", actual_receiver_number, lvi_power_on_nodes_num);
+		op_sim_end("Error: PPDU_SINR_T init wrong.", "Error source module: PLC_CHANNEL", "Error source function: actual_receiver_array_init", lvc_error_msg);
+	}
+	
+	FOUT;
+}
+
 /* End of Function Block */
 
 /* Undefine optional tracing in FIN/FOUT/FRET */
@@ -1257,7 +1337,6 @@ channel_state::channel (OP_SIM_CONTEXT_ARG_OPT)
 				{
 				Ici *lvp_ici;
 				PPDU_T *lvp_PPDU;
-				int lvi_actual_receiver_index;
 				
 				/* receive PPDU */
 				lvp_ici = op_intrpt_ici();
@@ -1273,14 +1352,18 @@ channel_state::channel (OP_SIM_CONTEXT_ARG_OPT)
 					
 					/* update PPDU attribute */
 					lvp_PPDU->PPDU_index = svi_PPDU_index++;
-					lvp_PPDU->actual_receiver_number = 1;    // for easy, consider num = 1
-					lvp_PPDU->actual_receiver_array = (PPDU_SINR_T *)op_prg_mem_alloc(lvp_PPDU->actual_receiver_number * sizeof(PPDU_SINR_T));
-					for (lvi_actual_receiver_index = 0; lvi_actual_receiver_index < lvp_PPDU->actual_receiver_number; lvi_actual_receiver_index++)
-					{
-						lvp_PPDU->actual_receiver_array[lvi_actual_receiver_index].actual_receiver_node_index = lvp_PPDU->receiver_node_index;  //TODO
-						lvp_PPDU->actual_receiver_array[lvi_actual_receiver_index].segment_sinr = prg_list_create();
-					}
 					
+					/* broadcast or unicast */
+					if (lvp_PPDU->receiver_node_index == PPDU_RECEIVER_INDEX_BROADCAST) {
+						lvp_PPDU->actual_receiver_number = power_on_nodes_num_get(lvp_PPDU->transmitter_node_index);
+						lvp_PPDU->actual_receiver_array = (PPDU_SINR_T *)op_prg_mem_alloc(lvp_PPDU->actual_receiver_number * sizeof(PPDU_SINR_T));
+					}
+					else {
+						lvp_PPDU->actual_receiver_number = 1;	//unicast
+						lvp_PPDU->actual_receiver_array = (PPDU_SINR_T *)op_prg_mem_alloc(lvp_PPDU->actual_receiver_number * sizeof(PPDU_SINR_T));
+					}
+					// init lvp_PPDU->actual_receiver_array[]
+					actual_receiver_array_init(lvp_PPDU->actual_receiver_array, lvp_PPDU->actual_receiver_number, lvp_PPDU->transmitter_node_index, lvp_PPDU->receiver_node_index);
 					
 					/* set self intrpt at end time*/
 					lvp_ici = op_ici_create("PPDU");
@@ -1294,7 +1377,7 @@ channel_state::channel (OP_SIM_CONTEXT_ARG_OPT)
 				}
 				else
 				{
-					/* insert PPDU to channel list */
+					/* insert PPDU to channel noise list */
 					printf("get a noise PPDU from noise_%d\n", lvp_PPDU->PPDU_index);
 					prg_list_insert(svlist_noise_ppdu, lvp_PPDU, PRGC_LISTPOS_TAIL);	
 				}

@@ -3,6 +3,14 @@
 #ifndef _PLC_CHANNEL
 #define _PLC_CHANNEL
 
+
+#define PPDU_RECEIVER_INDEX_BROADCAST	-1
+#define PPDU_RECEIVER_INDEX_HE			 0
+
+#define NODE_POWER_ON_FLAG		1
+#define NODE_POWER_OFF_FLAG		0
+
+
 /* enum */
 typedef enum INTRPT_CHANNEL_T
 {

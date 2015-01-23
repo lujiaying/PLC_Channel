@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char CPE_PHY_pr_cpp [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 549FF5C4 549FF5C4 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char CPE_PHY_pr_cpp [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54C1C372 54C1C372 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
 #include <string.h>
 
 
@@ -115,6 +115,8 @@ enum { _op_block_origin = __LINE__ + 2};
 static void
 PPDU_attr_set(PPDU_T *ppdu)
 {
+	double lvd_prob_broadcast = 0.2;
+	
 	FIN(PPDU_attr_set());
 	
 	// set PPDU attr
@@ -122,7 +124,13 @@ PPDU_attr_set(PPDU_T *ppdu)
 	ppdu->start_time = op_sim_time();
 	ppdu->end_time = op_sim_time() + op_dist_uniform(PPDU_LIVE_TIME);
 	ppdu->transmitter_node_index = svi_node_index;
-	ppdu->receiver_node_index = 0;
+	// send broadcast or unicast
+	if (op_dist_uniform(1.0) < lvd_prob_broadcast) {
+		ppdu->receiver_node_index = PPDU_RECEIVER_INDEX_BROADCAST;
+	}
+	else {
+		ppdu->receiver_node_index = PPDU_RECEIVER_INDEX_HE;
+	}
 	ppdu->power_linear = op_dist_outcome(svp_normal_dist);
 	ppdu->send_phase = sve_work_phase;
 	
@@ -212,6 +220,8 @@ CPE_PHY_state::CPE_PHY (OP_SIM_CONTEXT_ARG_OPT)
 				gvoid_node_oids[svi_node_index].phy_id = op_id_self();
 				/* get work phase */
 				op_ima_obj_attr_get(lvoid_NODE_id, "work_phase", &sve_work_phase);
+				/* set power on flag */
+				op_ima_obj_attr_set(lvoid_NODE_id, "power_on", NODE_POWER_ON_FLAG);
 				printf("[PHY.init] NODE index:%d, work_phase:%d\n", svi_node_index, sve_work_phase);
 				
 				/* schedule first PPDU */
