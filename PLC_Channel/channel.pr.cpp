@@ -4,7 +4,7 @@
 
 
 /* This variable carries the header into the object file */
-const char channel_pr_cpp [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54C84A04 54C84A04 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                               ";
+const char channel_pr_cpp [] = "MIL_3_Tfile_Hdr_ 145A 30A op_runsim 7 54C1CAC3 54C1CAC3 1 lu-wspn lu 0 0 none none 0 0 none 0 0 0 0 0 0 0 0 1bcc 1                                                                                                                                                                                                                                                                                                                                                                                                             ";
 #include <string.h>
 
 
@@ -20,16 +20,9 @@ const char channel_pr_cpp [] = "MIL_3_Tfile_Hdr_ 145A 30A modeler 7 54C84A04 54C
 //#include "PLC_data.h"
 #include "PLC_func.h"
 #include "PLC_Channel.h"
-#include <iostream>
-#include <Dense>
+#include <vector>
 
-using std::cout;
-using std::endl;
-using std::cin;
-using Eigen::Matrix;
-using Eigen::MatrixXd;
-using Eigen::MatrixXcd;
-using Eigen::EigenSolver;
+using std::vector;
 
 #define TIME_TO_UPDATE			((op_intrpt_type() == OPC_INTRPT_SELF) && (op_intrpt_code() == INTRPT_CHANNEL_TIME_TO_UPDATE))
 #define PPDU_START				((op_intrpt_type() == OPC_INTRPT_REMOTE) && (op_intrpt_code() == INTRPT_CHANNEL_PPDU_START))
@@ -1143,15 +1136,6 @@ channel_state::channel (OP_SIM_CONTEXT_ARG_OPT)
 			FSM_STATE_ENTER_FORCED_NOLABEL (0, "init", "channel [init enter execs]")
 				FSM_PROFILE_SECTION_IN ("channel [init enter execs]", state0_enter_exec)
 				{
-				Matrix<double, 5, 5> A;
-				A << 1, 2, 3, 4, 5,
-						2, 3, 4, 5, 6,
-						3, 4, 5, 6, 7,
-						4, 5, 6, 7, 8,
-						5, 6, 7, 8, 9;
-				cout << "A:\n" << A << endl;
-				op_sim_end("test over", "", "", "");
-				
 				FILE *lvp_fin;
 				int lvi_index_i, lvi_index_j, lvi_index_k;
 				
